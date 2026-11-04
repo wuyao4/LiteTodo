@@ -27,6 +27,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap"></noscript>
+<script>try{var m=localStorage.getItem("lt-mode");if(m==="light"||m==="dark")document.documentElement.setAttribute("data-theme",m)}catch(e){}</script>
 <style>
 /* 版式：左文右“桌面”舞台的首屏，往下是按功能展开的单列长页；舞台里的小部件真的贴在右边缘 */
 :root {
@@ -110,7 +111,17 @@ kbd {
   font: inherit; font-size: 0.78rem; color: var(--muted); background: none; border: 0; padding: 3px 10px; border-radius: 999px; cursor: pointer;
 }
 .lang button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
-@media (max-width: 760px) { .nav { display: none; } .lang { margin-left: auto; } }
+.tools { display: flex; align-items: center; gap: 8px; }
+.mode { display: flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
+.mode button { display: grid; place-items: center; width: 30px; height: 25px; color: var(--muted); background: none; border: 0; border-radius: 999px; cursor: pointer; }
+.mode button:hover { color: var(--fg); }
+.mode button svg { width: 15px; height: 15px; }
+.mode button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+/* 切换时整页颜色柔和过渡，只在切换的一瞬间生效 */
+html.mode-anim, html.mode-anim *, html.mode-anim *::before, html.mode-anim *::after {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;
+}
+@media (max-width: 760px) { .nav { display: none; } .tools { margin-left: auto; } }
 
 /* ---------- 首屏 ---------- */
 .hero .wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 56px; align-items: center; padding-block: 72px 56px; }
@@ -330,10 +341,16 @@ footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; g
       <a href="#get" data-i18n="nav.get">下载</a>
       <a href="https://github.com/wuyao4/LiteTodo" target="_blank" rel="noopener">GitHub</a>
     </nav>
-    <div class="lang" role="group" aria-label="Language">
-      <button type="button" data-lang="zh" aria-pressed="true">中</button>
-      <button type="button" data-lang="en" aria-pressed="false">EN</button>
-      <button type="button" data-lang="ja" aria-pressed="false">日</button>
+    <div class="tools">
+      <div class="mode" role="group" aria-label="页面配色" data-i18n-label="mode.group">
+        <button type="button" data-mode="light" aria-pressed="false" aria-label="白天模式" title="白天模式" data-i18n-label="mode.light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.5 1.5M17.1 17.1l1.5 1.5M5.4 18.6l1.5-1.5M17.1 6.9l1.5-1.5"/></svg></button>
+        <button type="button" data-mode="dark" aria-pressed="true" aria-label="夜间模式" title="夜间模式" data-i18n-label="mode.dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true"><path d="M20.2 14.6A8.4 8.4 0 0 1 9.4 3.8a8.4 8.4 0 1 0 10.8 10.8z"/></svg></button>
+      </div>
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="zh" aria-pressed="true">中</button>
+        <button type="button" data-lang="en" aria-pressed="false">EN</button>
+        <button type="button" data-lang="ja" aria-pressed="false">日</button>
+      </div>
     </div>
   </div>
 </header>
@@ -563,7 +580,7 @@ cd LiteTodo
   // ---------------- 文案 ----------------
   var T = {
     zh: {
-      "nav.demo": "演示", "nav.features": "功能", "nav.try": "试一试", "nav.keys": "快捷键", "nav.get": "下载",
+      "nav.demo": "演示", "mode.group": "页面配色", "mode.light": "白天模式", "mode.dark": "夜间模式", "nav.features": "功能", "nav.try": "试一试", "nav.keys": "快捷键", "nav.get": "下载",
       "hero.eyebrow": "Windows 桌面待办 · v1.2",
       "hero.title": "贴在屏幕边缘的<br><em>待办清单</em>",
       "hero.lede": "无边框、可调透明度。拖到屏幕边缘就自动收起，鼠标一碰又滑出来。单个 exe，免安装。",
@@ -600,7 +617,7 @@ cd LiteTodo
       "foot.tag": "轻量桌面待办", "foot.made": "用 WPF 与 .NET Framework 4.8 构建"
     },
     en: {
-      "nav.demo": "Demo", "nav.features": "Features", "nav.try": "Try it", "nav.keys": "Shortcuts", "nav.get": "Download",
+      "nav.demo": "Demo", "mode.group": "Color mode", "mode.light": "Light mode", "mode.dark": "Dark mode", "nav.features": "Features", "nav.try": "Try it", "nav.keys": "Shortcuts", "nav.get": "Download",
       "hero.eyebrow": "To-do widget for Windows · v1.2",
       "hero.title": "The to-do list that lives on the <em>edge of your screen</em>",
       "hero.lede": "Frameless and as transparent as you like. Drag it to a screen edge and it tucks away; touch the edge and it slides back. One small exe, nothing to install.",
@@ -637,7 +654,7 @@ cd LiteTodo
       "foot.tag": "a featherweight desktop to-do", "foot.made": "Built with WPF and .NET Framework 4.8"
     },
     ja: {
-      "nav.demo": "デモ", "nav.features": "機能", "nav.try": "試す", "nav.keys": "ショートカット", "nav.get": "ダウンロード",
+      "nav.demo": "デモ", "mode.group": "表示モード", "mode.light": "ライトモード", "mode.dark": "ダークモード", "nav.features": "機能", "nav.try": "試す", "nav.keys": "ショートカット", "nav.get": "ダウンロード",
       "hero.eyebrow": "Windows デスクトップ ToDo · v1.2",
       "hero.title": "画面の端にしまえる<br><em>ToDo リスト</em>",
       "hero.lede": "枠なしで、透明度も自由。画面の端までドラッグすると自動で隠れ、マウスを当てるとすっと出てきます。exe ひとつで、インストール不要。",
@@ -730,6 +747,10 @@ cd LiteTodo
     document.querySelectorAll("[data-i18n]").forEach(function (el) { var v = dict[el.dataset.i18n]; if (v != null) el.textContent = v; });
     document.querySelectorAll("[data-i18n-html]").forEach(function (el) { var v = dict[el.dataset.i18nHtml]; if (v != null) el.innerHTML = v; });
     document.querySelectorAll("[data-i18n-alt]").forEach(function (el) { var v = dict[el.dataset.i18nAlt]; if (v != null) el.alt = v; });
+    document.querySelectorAll("[data-i18n-label]").forEach(function (el) {
+      var v = dict[el.dataset.i18nLabel]; if (v == null) return;
+      el.setAttribute("aria-label", v); if (el.tagName === "BUTTON") el.title = v;
+    });
     document.querySelectorAll(".lang button").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.lang === lang ? "true" : "false"); });
     if (lang === "ja" && !document.getElementById("jp-font")) {
       var l = document.createElement("link");
@@ -741,6 +762,37 @@ cd LiteTodo
     store("lt-lang", lang);
   }
   document.querySelectorAll(".lang button").forEach(function (b) { b.addEventListener("click", function () { setLang(b.dataset.lang); }); });
+
+  // ---------------- 白天 / 夜间 ----------------
+  // 没选过就跟随系统（CSS 的 prefers-color-scheme 负责）；点过之后写到 data-theme 并记住
+  var root = document.documentElement;
+  var sysLight = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
+  var modeAnim = 0;
+  function currentMode() { return root.getAttribute("data-theme") || (sysLight && sysLight.matches ? "light" : "dark"); }
+  function syncMode() {
+    var m = currentMode();
+    document.querySelectorAll(".mode button").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.mode === m ? "true" : "false"); });
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = m === "light" ? "#f3f4fa" : "#0c0f22";
+  }
+  function setMode(m) {
+    if (m === currentMode() && root.getAttribute("data-theme")) return;
+    var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!still) {
+      root.classList.add("mode-anim");
+      clearTimeout(modeAnim);
+      modeAnim = setTimeout(function () { root.classList.remove("mode-anim"); }, 360);
+    }
+    root.setAttribute("data-theme", m);
+    store("lt-mode", m);
+    syncMode();
+  }
+  document.querySelectorAll(".mode button").forEach(function (b) { b.addEventListener("click", function () { setMode(b.dataset.mode); }); });
+  if (sysLight) {
+    var onSys = function () { if (!root.getAttribute("data-theme")) syncMode(); };
+    if (sysLight.addEventListener) sysLight.addEventListener("change", onSys); else if (sysLight.addListener) sysLight.addListener(onSys);
+  }
+  syncMode();
 
   // ---------------- 快捷键 ----------------
   function renderKeys() {
