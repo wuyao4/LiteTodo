@@ -11,7 +11,7 @@
 
 <img src="docs/demo.gif" width="720" alt="LiteTodo のデモ：追加、完了、端にしまう">
 
-**[最新版をダウンロード](https://github.com/wuyao4/LiteTodo/releases/latest)** · 47 秒のフルデモ動画：[`site/assets/demo.mp4`](site/assets/demo.mp4) · ランディングページ：[`site/index.html`](site/index.html)
+**[最新版をダウンロード](https://github.com/wuyao4/LiteTodo/releases/latest)** · 47 秒のフルデモ動画：[`site/assets/demo.mp4`](site/assets/demo.mp4) · 公式サイト：[litetodo.wyyy.site](https://litetodo.wyyy.site)
 
 </div>
 
@@ -122,7 +122,7 @@ src/
   Fx.cs                     アニメーションと添付プロパティ（登場、折りたたみ、弾み、進捗リング）
   MainWindow.xaml           レイアウト
   Styles.xaml               コントロールのスタイル
-site/                       ランディングページ（HTML 1 枚と画像・デモ動画）
+site/                       公式サイト litetodo.wyyy.site（HTML 1 枚と画像・デモ動画）
 tools/snap/                 スクリーンショット・テスト・動画用ツール
 tools/make-icon.ps1         app.ico を生成
 ```

@@ -11,7 +11,7 @@ One exe of about 214 KB that runs on the .NET Framework 4.8 built into Windows. 
 
 <img src="docs/demo.gif" width="720" alt="LiteTodo demo: adding, completing and edge docking">
 
-**[Download the latest release](https://github.com/wuyao4/LiteTodo/releases/latest)** · Full 47-second demo video: [`site/assets/demo.mp4`](site/assets/demo.mp4) · Landing page: [`site/index.html`](site/index.html)
+**[Download the latest release](https://github.com/wuyao4/LiteTodo/releases/latest)** · Full 47-second demo video: [`site/assets/demo.mp4`](site/assets/demo.mp4) · Website: [litetodo.wyyy.site](https://litetodo.wyyy.site)
 
 </div>
 
@@ -122,7 +122,7 @@ src/
   Fx.cs                     animations and attached properties (enter, collapse, pop, progress ring)
   MainWindow.xaml           layout
   Styles.xaml               control styles
-site/                       landing page (one HTML file plus images and the demo video)
+site/                       website at litetodo.wyyy.site (one HTML file plus images and the demo video)
 tools/snap/                 screenshot, test and video tools
 tools/make-icon.ps1         generates app.ico
 ```

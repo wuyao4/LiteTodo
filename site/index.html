@@ -5,13 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
 <title>LiteTodo</title>
+<!-- self-host：只在自建站点使用，生成托管副本时整段去掉 -->
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="canonical" href="https://litetodo.wyyy.site/">
+<meta name="theme-color" content="#0c0f22">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="LiteTodo">
+<meta property="og:url" content="https://litetodo.wyyy.site/">
+<meta property="og:title" content="LiteTodo — 贴在屏幕边缘的待办清单 · The to-do list that lives on the edge of your screen">
+<meta property="og:description" content="无边框、可调透明度的 Windows 桌面待办，拖到屏幕边缘自动收起。A frameless, transparent to-do widget for Windows that tucks into the screen edge.">
+<meta property="og:image" content="https://litetodo.wyyy.site/assets/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<!-- /self-host -->
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="LiteTodo — a featherweight, transparent, frameless to-do widget for Windows that tucks into the screen edge.">
 <!-- 下载地址：GitHub Releases 上的压缩包；留空则显示“从源码构建” -->
 <meta name="litetodo-download" content="https://github.com/wuyao4/LiteTodo/releases/download/v1.2/LiteTodo-v1.2.zip">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap"></noscript>
 <style>
 /* 版式：左文右“桌面”舞台的首屏，往下是按功能展开的单列长页；舞台里的小部件真的贴在右边缘 */
 :root {

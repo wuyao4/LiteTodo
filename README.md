@@ -11,7 +11,7 @@
 
 <img src="docs/demo.gif" width="720" alt="LiteTodo 演示：添加、完成、贴边收起">
 
-**[下载最新版](https://github.com/wuyao4/LiteTodo/releases/latest)** · 完整 47 秒演示视频：[`site/assets/demo.mp4`](site/assets/demo.mp4) · 官网页面：[`site/index.html`](site/index.html)
+**[下载最新版](https://github.com/wuyao4/LiteTodo/releases/latest)** · 完整 47 秒演示视频：[`site/assets/demo.mp4`](site/assets/demo.mp4) · 官网：[litetodo.wyyy.site](https://litetodo.wyyy.site)
 
 </div>
 
@@ -120,7 +120,7 @@ src/
   Fx.cs                     动画与附加属性（入场、收起、弹跳、进度环）
   MainWindow.xaml           界面布局
   Styles.xaml               控件样式
-site/                       官网落地页（单个 HTML + 图片与演示视频）
+site/                       官网 litetodo.wyyy.site（单个 HTML + 图片与演示视频）
 tools/snap/                 截图、测试与视频录制工具
 tools/make-icon.ps1         生成 app.ico
 ```
