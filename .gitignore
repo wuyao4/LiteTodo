@@ -1,0 +1,10 @@
+# 构建输出（发布包放在 GitHub Releases）
+dist/
+*.zip
+
+# 运行时数据与日志
+todo-data.json
+todo-data.json.tmp
+*.bak
+error.log
+portable

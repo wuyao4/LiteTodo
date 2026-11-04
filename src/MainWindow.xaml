@@ -1,0 +1,696 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="clr-namespace:LiteTodo;assembly=LiteTodo"
+        Title="LiteTodo" Width="360" Height="560" MinWidth="280" MinHeight="220"
+        WindowStyle="None" AllowsTransparency="True" Background="#01000000" ResizeMode="CanResize"
+        Topmost="{Binding EffectiveTopmost}" ShowInTaskbar="{Binding ShowInTaskbar}"
+        FontFamily="{StaticResource UiFont}" FontSize="{DynamicResource BaseFontSize}"
+        Foreground="{DynamicResource TextBrush}"
+        TextOptions.TextFormattingMode="Display" UseLayoutRounding="True" SnapsToDevicePixels="True">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0" ResizeBorderThickness="10" GlassFrameThickness="0"
+                      CornerRadius="0" UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <!-- ===================== 条目模板 ===================== -->
+        <DataTemplate x:Key="ItemTemplate">
+            <Border x:Name="root" Tag="item" l:Fx.Appear="True" Margin="{DynamicResource ItemMargin}" AllowDrop="True"
+                    CornerRadius="{DynamicResource ItemRadius}" Background="{DynamicResource ItemBgBrush}"
+                    BorderBrush="{DynamicResource ItemLineBrush}" BorderThickness="{DynamicResource ItemBorderThick}">
+                <Grid>
+                    <Border x:Name="sel" CornerRadius="{DynamicResource ItemRadius}" BorderThickness="1.2"
+                            BorderBrush="{DynamicResource AccentLineBrush}" Visibility="Collapsed"/>
+                    <Border x:Name="stripe" Width="{DynamicResource StripeWidth}" HorizontalAlignment="Left" Margin="{DynamicResource StripeMargin}"
+                            CornerRadius="0,3,3,0" Background="{Binding TagBrush}"/>
+                    <Grid Margin="{DynamicResource ItemPadding}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <ToggleButton x:Name="check" Tag="check" Style="{StaticResource CheckToggle}"
+                                      IsChecked="{Binding IsDone, Mode=TwoWay}"
+                                      Width="{DynamicResource CheckSize}" Height="{DynamicResource CheckSize}"
+                                      VerticalAlignment="Top" Margin="2,1,11,0"/>
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <DockPanel>
+                                <Ellipse DockPanel.Dock="Left" Width="7" Height="7" Margin="0,0,8,0" VerticalAlignment="Center"
+                                         Fill="{Binding TagBrush}" Visibility="{DynamicResource DotVis}"/>
+                                <TextBlock x:Name="txt" Text="{Binding Text}" TextWrapping="Wrap"
+                                           FontSize="{DynamicResource ItemFontSize}" Foreground="{DynamicResource TextBrush}"/>
+                            </DockPanel>
+                            <TextBox x:Name="edit" Uid="edit" Style="{StaticResource EditBox}" Visibility="Collapsed"
+                                     FontSize="{DynamicResource ItemFontSize}" MaxLength="500"
+                                     Text="{Binding EditText, UpdateSourceTrigger=PropertyChanged}"/>
+                            <StackPanel x:Name="meta" Orientation="Horizontal" Margin="0,4,0,0" Visibility="{DynamicResource MetaVis}">
+                                <TextBlock x:Name="metaFlag" Text="&#xE7C1;" FontFamily="{StaticResource IconFont}" FontSize="9"
+                                           Foreground="{Binding PrioBrush}" VerticalAlignment="Center" Margin="0,1,4,0"/>
+                                <TextBlock x:Name="metaPrio" Text="{Binding PrioText}" Foreground="{Binding PrioBrush}"
+                                           FontSize="{DynamicResource MetaFontSize}" Margin="0,0,8,0"/>
+                                <TextBlock Text="{Binding MetaText}" FontSize="{DynamicResource MetaFontSize}"
+                                           Foreground="{DynamicResource FaintTextBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- 右侧：平时显示优先级小旗，悬停显示操作 -->
+                        <Grid Grid.Column="2" Width="50" Margin="4,-3,0,-3" VerticalAlignment="Top">
+                            <TextBlock x:Name="flag" Text="&#xE7C1;" FontFamily="{StaticResource IconFont}" FontSize="11"
+                                       Foreground="{Binding PrioBrush}" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                       Margin="0,7,7,0"/>
+                            <StackPanel x:Name="actions" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                        Opacity="0" IsHitTestVisible="False">
+                                <Button Tag="more" Content="&#xE712;" Width="24" Height="24" Style="{StaticResource IconBtn}"
+                                        ToolTip="优先级 / 颜色 / 更多（右键）"/>
+                                <Button Tag="del" Content="&#xE74D;" Width="24" Height="24" FontSize="11.5"
+                                        Style="{StaticResource DangerIconBtn}" ToolTip="删除 (Del)"/>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Priority}" Value="0">
+                    <Setter TargetName="flag" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="metaFlag" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="metaPrio" Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsDone}" Value="True">
+                    <Setter TargetName="txt" Property="TextDecorations" Value="Strikethrough"/>
+                    <Setter TargetName="txt" Property="Foreground" Value="{DynamicResource FaintTextBrush}"/>
+                    <Setter TargetName="flag" Property="Opacity" Value="0.35"/>
+                    <Setter TargetName="stripe" Property="Opacity" Value="0.35"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsEditing}" Value="True">
+                    <Setter TargetName="txt" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="edit" Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+                <Trigger SourceName="root" Property="IsMouseOver" Value="True">
+                    <Setter TargetName="root" Property="Background" Value="{DynamicResource ItemHoverBrush}"/>
+                    <Setter TargetName="actions" Property="Opacity" Value="1"/>
+                    <Setter TargetName="actions" Property="IsHitTestVisible" Value="True"/>
+                    <Setter TargetName="flag" Property="Visibility" Value="Hidden"/>
+                </Trigger>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter TargetName="root" Property="Background" Value="{DynamicResource SelectBrush}"/>
+                    <Setter TargetName="sel" Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsDragging}" Value="True">
+                    <Setter TargetName="root" Property="Background" Value="{DynamicResource SelectBrush}"/>
+                    <Setter TargetName="sel" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="root" Property="Opacity" Value="0.85"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid x:Name="Outer" Margin="14">
+        <!-- 背景（阴影只加在背景层上，文字保持清晰） -->
+        <Border x:Name="BgLayer" CornerRadius="16" Background="{DynamicResource BgBrush}">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="22" ShadowDepth="3" Direction="270" Opacity="0.5" Color="Black"/>
+            </Border.Effect>
+        </Border>
+        <Border CornerRadius="16" Background="{DynamicResource GlowBrush}" IsHitTestVisible="False"/>
+
+        <Grid x:Name="Root">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- ===================== 标题栏 ===================== -->
+            <Grid x:Name="Header" Grid.Row="0" Background="Transparent" Margin="18,14,12,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Title}" FontSize="{DynamicResource TitleFontSize}" FontWeight="Bold"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="&#xE840;" FontFamily="{StaticResource IconFont}" FontSize="11" Margin="8,3,0,0"
+                                   VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}" ToolTip="已置顶"
+                                   Visibility="{Binding Topmost, Converter={StaticResource B2V}}"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding HeaderSubtitle}" FontSize="12" Margin="1,3,0,0" Foreground="{DynamicResource SubTextBrush}"
+                               TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+
+                <Grid Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0">
+                    <!-- 完成进度环（空闲时显示） -->
+                    <Grid x:Name="RingBox" Width="38" Height="38" HorizontalAlignment="Right" Background="Transparent"
+                          ToolTip="{Binding ProgressTip}">
+                        <Ellipse Stroke="{DynamicResource InputHoverBrush}" StrokeThickness="3.2"/>
+                        <Ellipse x:Name="Ring" Stroke="{DynamicResource AccentBrush}" StrokeThickness="3.2" RenderTransformOrigin="0.5,0.5">
+                            <Ellipse.RenderTransform><RotateTransform Angle="-90"/></Ellipse.RenderTransform>
+                        </Ellipse>
+                        <TextBlock Text="{Binding ProgressText}" FontFamily="{StaticResource NumFont}" FontSize="10.5" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource SubTextBrush}"/>
+                        <TextBlock Text="&#xE73E;" FontFamily="{StaticResource IconFont}" FontSize="13" FontWeight="Bold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"
+                                   Visibility="{Binding AllDone, Converter={StaticResource B2V}}"/>
+                    </Grid>
+                    <!-- 窗口按钮（鼠标移入时显示） -->
+                    <StackPanel x:Name="WinButtons" Orientation="Horizontal" HorizontalAlignment="Right" Opacity="0" IsHitTestVisible="False">
+                        <Button Tag="mini" Content="{Binding MiniGlyph}" Style="{StaticResource IconBtn}" FontSize="11"
+                                ToolTip="折叠 / 展开（也可双击标题栏）"/>
+                        <Button Tag="pin" Content="{Binding PinGlyph}" ToolTip="窗口置顶">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource IconBtn}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Topmost}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Button Tag="settings" Content="&#xE713;" Style="{StaticResource IconBtn}" ToolTip="设置"/>
+                        <Button Tag="min" Content="&#xE921;" Style="{StaticResource IconBtn}" FontSize="10" ToolTip="最小化"/>
+                        <Button Tag="close" Content="&#xE8BB;" Style="{StaticResource CloseBtn}" ToolTip="退出"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+
+            <!-- ===================== 列表 ===================== -->
+            <Grid x:Name="ListArea" Grid.Row="1">
+                <ScrollViewer x:Name="Scroller" Style="{StaticResource OverlayScroll}" Margin="8,0,3,0" Padding="0,0,7,0">
+                    <StackPanel Margin="0,0,0,40">
+                        <!-- 空状态 -->
+                        <StackPanel x:Name="Empty" Margin="0,30,0,24" HorizontalAlignment="Center" IsHitTestVisible="False"
+                                    Visibility="{Binding ShowEmpty, Converter={StaticResource B2V}}">
+                            <Grid Width="68" Height="68" HorizontalAlignment="Center">
+                                <Ellipse Fill="{DynamicResource AccentSoftBrush}"/>
+                                <Ellipse Margin="10" Fill="{DynamicResource AccentSoftBrush}"/>
+                                <TextBlock Text="{Binding EmptyGlyph}" FontFamily="{StaticResource IconFont}" FontSize="24"
+                                           Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Grid>
+                            <TextBlock Text="{Binding EmptyTitle}" FontSize="14.5" FontWeight="SemiBold" Margin="0,14,0,0"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="{Binding EmptyHint}" FontSize="12" Margin="0,5,0,0" HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource SubTextBrush}"/>
+                        </StackPanel>
+
+                        <ItemsControl x:Name="ActiveList" ItemsSource="{Binding ActiveView}" ItemTemplate="{StaticResource ItemTemplate}"
+                                      AllowDrop="True" Background="Transparent"/>
+
+                        <!-- 已完成分组 -->
+                        <Grid x:Name="DoneHeader" Margin="0,8,0,2" Visibility="{Binding HasDone, Converter={StaticResource B2V}}">
+                            <Button Tag="doneSection" Style="{StaticResource SectionBtn}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE76C;" FontFamily="{StaticResource IconFont}" FontSize="9" VerticalAlignment="Center"
+                                               RenderTransformOrigin="0.5,0.5">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="RenderTransform"><Setter.Value><RotateTransform Angle="90"/></Setter.Value></Setter>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DoneCollapsed}" Value="True">
+                                                        <Setter Property="RenderTransform"><Setter.Value><RotateTransform Angle="0"/></Setter.Value></Setter>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBlock Text="已完成" Margin="8,0,7,0" VerticalAlignment="Center"/>
+                                    <Border CornerRadius="7" Padding="6,0,6,1" Background="{DynamicResource InputHoverBrush}" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding DoneCount}" FontSize="10.5" FontFamily="{StaticResource NumFont}"/>
+                                    </Border>
+                                </StackPanel>
+                            </Button>
+                            <Button Tag="clearDone" Style="{StaticResource LinkBtn}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    Foreground="{DynamicResource SubTextBrush}" ToolTip="删除所有已完成（可撤销）">
+                                <TextBlock Text="清除" FontSize="11.5"/>
+                            </Button>
+                        </Grid>
+
+                        <ItemsControl x:Name="DoneList" ItemsSource="{Binding DoneView}" ItemTemplate="{StaticResource ItemTemplate}"
+                                      Background="Transparent" Visibility="{Binding DoneExpanded, Converter={StaticResource B2V}}"/>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- 撤销提示 -->
+                <Border x:Name="Toast" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,6"
+                        CornerRadius="10" Padding="13,4,4,4" Background="{DynamicResource PopupSolidBrush}"
+                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="ToastText" FontSize="12" VerticalAlignment="Center" MaxWidth="200" TextTrimming="CharacterEllipsis"/>
+                        <Button x:Name="UndoBtn" Tag="undo" Style="{StaticResource LinkBtn}" Margin="8,0,0,0">
+                            <TextBlock Text="撤销" FontWeight="SemiBold"/>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- ===================== 输入栏 ===================== -->
+            <Border x:Name="Composer" Grid.Row="2" Margin="12,4,12,12" CornerRadius="12" BorderThickness="1">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="{DynamicResource InputBrush}"/>
+                        <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource InputHoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource AccentLineBrush}"/>
+                                <Setter Property="Background" Value="{DynamicResource InputHoverBrush}"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel>
+                    <Grid Margin="12,0,6,0" MinHeight="42">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid Width="18" VerticalAlignment="Center" DataContext="{Binding Draft}">
+                            <TextBlock FontFamily="{StaticResource IconFont}" FontSize="13" HorizontalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="&#xE710;"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Priority}" Value="1">
+                                                <Setter Property="Text" Value="&#xE7C1;"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource P1Brush}"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Priority}" Value="2">
+                                                <Setter Property="Text" Value="&#xE7C1;"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource P2Brush}"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Priority}" Value="3">
+                                                <Setter Property="Text" Value="&#xE7C1;"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource P3Brush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <Ellipse Width="7" Height="7" Fill="{Binding TagBrush}" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                     Margin="0,0,-3,-3"/>
+                        </Grid>
+                        <TextBox x:Name="Input" Grid.Column="1" Style="{StaticResource InputBox}" Margin="10,0,6,0" MaxLength="500"
+                                 Tag="添加任务，按 Enter 保存"/>
+                        <Button x:Name="SendBtn" Grid.Column="2" Tag="add" Content="&#xE751;" Style="{StaticResource AccentBtn}"
+                                ToolTip="添加 (Enter)" Visibility="Collapsed"/>
+                    </Grid>
+                    <!-- 聚焦时展开：优先级与颜色 -->
+                    <Border x:Name="ComposerTools" Visibility="Collapsed">
+                        <WrapPanel Margin="8,0,8,8">
+                            <ItemsControl ItemsSource="{Binding DraftPrios}" VerticalAlignment="Center">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Tag="draftPrio" Style="{StaticResource ChipBtn}" ToolTip="{Binding Glyph}"
+                                                AutomationProperties.Name="{Binding Name}"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Border Width="1" Height="14" Background="{DynamicResource LineBrush}" Margin="2,0,5,0" VerticalAlignment="Center"/>
+                            <ItemsControl ItemsSource="{Binding DraftColors}" VerticalAlignment="Center">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Tag="draftColor" Style="{StaticResource MiniSwatchBtn}" ToolTip="{Binding Glyph}"
+                                                AutomationProperties.Name="{Binding Name}"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </WrapPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- ===================== 设置页 ===================== -->
+            <Grid x:Name="SettingsPanel" Grid.RowSpan="3" Visibility="Collapsed">
+                <Border CornerRadius="16" Background="{DynamicResource PopupBrush}"/>
+                <Border CornerRadius="16" Background="{DynamicResource GlowBrush}" IsHitTestVisible="False"/>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid x:Name="SettingsHeader" Background="Transparent" Margin="10,12,12,8">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Tag="settings" Content="&#xE72B;" Style="{StaticResource IconBtn}" FontSize="13" ToolTip="返回 (Esc)"/>
+                            <TextBlock Text="设置" FontSize="17" FontWeight="Bold" VerticalAlignment="Center" Margin="6,0,0,1"/>
+                        </StackPanel>
+                    </Grid>
+                    <ScrollViewer Grid.Row="1" Style="{StaticResource OverlayScroll}" Margin="0,0,3,0" Padding="0,0,7,0">
+                        <StackPanel Margin="14,0,8,14">
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="主题" Style="{StaticResource CardTitle}"/>
+                                    <ItemsControl ItemsSource="{Binding Themes}" Margin="-4,0,0,0">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Tag="theme" Style="{StaticResource ThemeBtn}" AutomationProperties.Name="{Binding Name}"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock Text="显示风格" Style="{StaticResource CardTitle}" Margin="0,6,0,6"/>
+                                    <ItemsControl ItemsSource="{Binding Layouts}" Margin="-3,0">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Tag="layout" Style="{StaticResource LayoutBtn}" AutomationProperties.Name="{Binding Name}"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="透明度" Style="{StaticResource CardTitle}"/>
+                                    <Grid>
+                                        <TextBlock Text="背景" Style="{StaticResource FieldLabel}"/>
+                                        <TextBlock Text="{Binding BgOpacity, StringFormat={}{0:P0}}" HorizontalAlignment="Right"
+                                                   FontSize="11.5" FontFamily="{StaticResource NumFont}"/>
+                                    </Grid>
+                                    <Slider Style="{StaticResource ThinSlider}" Minimum="0" Maximum="1" SmallChange="0.05" LargeChange="0.1"
+                                            Value="{Binding BgOpacity}" Margin="0,3,0,0"/>
+                                    <Grid Margin="0,8,0,0">
+                                        <TextBlock Text="整体（含文字）" Style="{StaticResource FieldLabel}"/>
+                                        <TextBlock Text="{Binding WinOpacity, StringFormat={}{0:P0}}" HorizontalAlignment="Right"
+                                                   FontSize="11.5" FontFamily="{StaticResource NumFont}"/>
+                                    </Grid>
+                                    <Slider Style="{StaticResource ThinSlider}" Minimum="0.3" Maximum="1" SmallChange="0.05" LargeChange="0.1"
+                                            Value="{Binding WinOpacity}" Margin="0,3,0,0"/>
+                                    <CheckBox Style="{StaticResource Switch}" Content="鼠标移入时完全不透明" IsChecked="{Binding HoverOpaque}"
+                                              Margin="0,4,0,-6"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="文字" Style="{StaticResource CardTitle}"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="A" FontSize="11" Foreground="{DynamicResource SubTextBrush}" VerticalAlignment="Center"/>
+                                        <Slider Grid.Column="1" Style="{StaticResource ThinSlider}" Minimum="11" Maximum="20" SmallChange="0.5"
+                                                LargeChange="1" TickFrequency="0.5" IsSnapToTickEnabled="True" Value="{Binding FontSizeBase}"
+                                                Margin="10,0"/>
+                                        <TextBlock Grid.Column="2" Text="A" FontSize="17" Foreground="{DynamicResource SubTextBrush}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="3" Text="{Binding FontSizeBase, StringFormat={}{0:0.#}}" Width="30" TextAlignment="Right"
+                                                   FontSize="11.5" FontFamily="{StaticResource NumFont}" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Grid Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="标题" Style="{StaticResource FieldLabel}" Margin="0,0,14,0"/>
+                                        <Border Grid.Column="1" CornerRadius="8" Background="{DynamicResource InputBrush}" Padding="9,6"
+                                                BorderBrush="{DynamicResource LineBrush}" BorderThickness="1">
+                                            <TextBox Style="{StaticResource InputBox}" Tag="待办事项" MaxLength="40"
+                                                     Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"/>
+                                        </Border>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="窗口与列表" Style="{StaticResource CardTitle}" Margin="0,2,0,2"/>
+                                    <CheckBox Style="{StaticResource Switch}" Content="按优先级排序" IsChecked="{Binding SortByPriority}"/>
+                                    <Grid Margin="0,7">
+                                        <TextBlock Text="窗口层级" VerticalAlignment="Center"/>
+                                        <ItemsControl ItemsSource="{Binding LayerChoices}" HorizontalAlignment="Right">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Tag="layer" Style="{StaticResource SegBtn}" Content="{Binding Name}"
+                                                            AutomationProperties.Name="{Binding Name}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Grid>
+                                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding EdgeDock}">
+                                        <StackPanel>
+                                            <TextBlock Text="拖到屏幕边缘时自动收起"/>
+                                            <TextBlock Text="鼠标碰到边缘展开，移开后自动收回" FontSize="11" Margin="0,2,8,0"
+                                                       TextWrapping="Wrap" Foreground="{DynamicResource FaintTextBrush}"/>
+                                        </StackPanel>
+                                    </CheckBox>
+                                    <CheckBox Content="在任务栏显示" IsChecked="{Binding ShowInTaskbar}">
+                                        <CheckBox.Style>
+                                            <Style TargetType="CheckBox" BasedOn="{StaticResource Switch}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding HideAltTab}" Value="True">
+                                                        <Setter Property="IsEnabled" Value="False"/>
+                                                        <Setter Property="Opacity" Value="0.45"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </CheckBox.Style>
+                                    </CheckBox>
+                                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding HideAltTab}">
+                                        <StackPanel>
+                                            <TextBlock Text="不在 Alt+Tab 中显示"/>
+                                            <TextBlock Text="任务栏按钮也会隐藏，可从托盘图标唤出"
+                                                       FontSize="11" Margin="0,2,8,0" TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource FaintTextBrush}"/>
+                                        </StackPanel>
+                                    </CheckBox>
+                                    <CheckBox Style="{StaticResource Switch}" Content="开机自动启动" IsChecked="{Binding AutoStart}" Margin="0,0,0,-6"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel TextElement.FontSize="12">
+                                    <StackPanel.Resources>
+                                        <Style TargetType="Grid"><Setter Property="Margin" Value="0,4"/></Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource FieldLabel}"/>
+                                    </StackPanel.Resources>
+                                    <TextBlock Text="快捷操作" Style="{StaticResource CardTitle}"/>
+                                    <Grid><TextBlock Text="添加任务"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Border Style="{StaticResource Keycap}"><TextBlock Text="Enter"/></Border></StackPanel></Grid>
+                                    <Grid><TextBlock Text="输入时设优先级 高/中/低"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Border Style="{StaticResource Keycap}"><TextBlock Text="!!!"/></Border><Border Style="{StaticResource Keycap}"><TextBlock Text="!!"/></Border><Border Style="{StaticResource Keycap}"><TextBlock Text="!"/></Border></StackPanel></Grid>
+                                    <Grid><TextBlock Text="输入时加颜色标签"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Border Style="{StaticResource Keycap}"><TextBlock Text="#红"/></Border><Border Style="{StaticResource Keycap}"><TextBlock Text="#蓝"/></Border><Border Style="{StaticResource Keycap}"><TextBlock Text="…"/></Border></StackPanel></Grid>
+                                    <Grid><TextBlock Text="选择条目"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Border Style="{StaticResource Keycap}"><TextBlock Text="↑"/></Border><Border Style="{StaticResource Keycap}"><TextBlock Text="↓"/></Border></StackPanel></Grid>
+                                    <Grid><TextBlock Text="完成 / 取消完成"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Border Style="{StaticResource Keycap}"><TextBlock Text="Space"/></Border></StackPanel></Grid>
+                                    <Grid><TextBlock Text="编辑（或双击）"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Border Style="{StaticResource Keycap}"><TextBlock Text="Enter"/></Border><Border Style="{StaticResource Keycap}"><TextBlock Text="F2"/></Border></StackPanel></Grid>
+                                    <Grid><TextBlock Text="设优先级 高/中/低/无"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Border Style="{StaticResource Keycap}"><TextBlock Text="1"/></Border><Border Style="{StaticResource Keycap}"><TextBlock Text="2"/></Border><Border Style="{StaticResource Keycap}"><TextBlock Text="3"/></Border><Border Style="{StaticResource Keycap}"><TextBlock Text="0"/></Border></StackPanel></Grid>
+                                    <Grid><TextBlock Text="调整顺序（或拖动）"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Border Style="{StaticResource Keycap}"><TextBlock Text="Ctrl"/></Border><Border Style="{StaticResource Keycap}"><TextBlock Text="↑ ↓"/></Border></StackPanel></Grid>
+                                    <Grid><TextBlock Text="删除 / 撤销删除"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Border Style="{StaticResource Keycap}"><TextBlock Text="Del"/></Border><Border Style="{StaticResource Keycap}"><TextBlock Text="Ctrl Z"/></Border></StackPanel></Grid>
+                                    <Grid><TextBlock Text="粘贴多行文本批量添加"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Border Style="{StaticResource Keycap}"><TextBlock Text="Ctrl V"/></Border></StackPanel></Grid>
+                                    <Grid><TextBlock Text="调整背景透明度"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Border Style="{StaticResource Keycap}"><TextBlock Text="Ctrl"/></Border><Border Style="{StaticResource Keycap}"><TextBlock Text="滚轮"/></Border></StackPanel></Grid>
+                                    <Grid><TextBlock Text="调整字号"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Border Style="{StaticResource Keycap}"><TextBlock Text="Ctrl"/></Border><Border Style="{StaticResource Keycap}"><TextBlock Text="+ / −"/></Border></StackPanel></Grid>
+                                    <Grid><TextBlock Text="贴边收起"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Border Style="{StaticResource Keycap}"><TextBlock Text="拖到屏幕边缘"/></Border></StackPanel></Grid>
+                                    <Grid><TextBlock Text="窗口菜单"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Border Style="{StaticResource Keycap}"><TextBlock Text="右键标题栏"/></Border></StackPanel></Grid>
+                                    <Grid><TextBlock Text="折叠窗口"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Border Style="{StaticResource Keycap}"><TextBlock Text="双击标题栏"/></Border></StackPanel></Grid>
+                                    <Grid><TextBlock Text="显示 / 隐藏窗口"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Border Style="{StaticResource Keycap}"><TextBlock Text="Ctrl Alt T"/></Border></StackPanel></Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <Grid Margin="2,0,2,0">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="-8,0,0,0">
+                                    <Button Tag="openDir" Style="{StaticResource LinkBtn}">
+                                        <TextBlock Text="打开数据文件夹"/>
+                                    </Button>
+                                    <Button Tag="tutorial" Style="{StaticResource LinkBtn}">
+                                        <TextBlock Text="添加使用示例"/>
+                                    </Button>
+                                </StackPanel>
+                                <TextBlock Text="LiteTodo 1.2" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="11"
+                                           Foreground="{DynamicResource FaintTextBrush}"/>
+                            </Grid>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Grid>
+
+            <!-- ===================== 条目菜单 ===================== -->
+            <Popup x:Name="Menu" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" Placement="MousePoint">
+                <Grid Margin="14" Width="228" TextElement.Foreground="{DynamicResource TextBrush}" TextElement.FontSize="12.5">
+                    <Border CornerRadius="12" Background="{DynamicResource PopupSolidBrush}">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="18" ShadowDepth="3" Direction="270" Opacity="0.35"/>
+                        </Border.Effect>
+                    </Border>
+                    <Border CornerRadius="12" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" Padding="7">
+                        <StackPanel>
+                            <ItemsControl x:Name="PrioList">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Tag="setPrio" Style="{StaticResource SegChoiceBtn}" AutomationProperties.Name="{Binding Name}"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Border Height="1" Background="{DynamicResource LineBrush}" Margin="4,6"/>
+                            <ItemsControl x:Name="ColorList" HorizontalAlignment="Center">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Tag="setColor" Style="{StaticResource SwatchBtn}" ToolTip="{Binding Name}"
+                                                AutomationProperties.Name="{Binding Name}"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <StackPanel x:Name="MenuActions">
+                                <Border Height="1" Background="{DynamicResource LineBrush}" Margin="4,6"/>
+                                <Button Tag="edit" Style="{StaticResource MenuRowBtn}">
+                                    <DockPanel>
+                                        <TextBlock Text="&#xE70F;" FontFamily="{StaticResource IconFont}" Width="24" VerticalAlignment="Center"/>
+                                        <Border DockPanel.Dock="Right" Style="{StaticResource Keycap}"><TextBlock Text="F2"/></Border>
+                                        <TextBlock Text="编辑"/>
+                                    </DockPanel>
+                                </Button>
+                                <Button Tag="toggleDone" Style="{StaticResource MenuRowBtn}">
+                                    <DockPanel>
+                                        <TextBlock Text="&#xE73E;" FontFamily="{StaticResource IconFont}" Width="24" VerticalAlignment="Center"/>
+                                        <Border DockPanel.Dock="Right" Style="{StaticResource Keycap}"><TextBlock Text="Space"/></Border>
+                                        <TextBlock x:Name="MenuDoneText" Text="标为完成"/>
+                                    </DockPanel>
+                                </Button>
+                                <Button x:Name="MenuLink" Tag="openLink" Style="{StaticResource MenuRowBtn}">
+                                    <DockPanel>
+                                        <TextBlock Text="&#xE71B;" FontFamily="{StaticResource IconFont}" Width="24" VerticalAlignment="Center"/>
+                                        <TextBlock Text="打开链接"/>
+                                    </DockPanel>
+                                </Button>
+                                <Button x:Name="MenuToTop" Tag="toTop" Style="{StaticResource MenuRowBtn}">
+                                    <DockPanel>
+                                        <TextBlock Text="&#xE74A;" FontFamily="{StaticResource IconFont}" Width="24" VerticalAlignment="Center"/>
+                                        <TextBlock Text="移到最前"/>
+                                    </DockPanel>
+                                </Button>
+                                <Button Tag="delete" Style="{StaticResource MenuRowBtn}" Foreground="{DynamicResource DangerBrush}">
+                                    <DockPanel>
+                                        <TextBlock Text="&#xE74D;" FontFamily="{StaticResource IconFont}" Width="24" VerticalAlignment="Center"/>
+                                        <Border DockPanel.Dock="Right" Style="{StaticResource Keycap}"><TextBlock Text="Del"/></Border>
+                                        <TextBlock Text="删除"/>
+                                    </DockPanel>
+                                </Button>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Popup>
+
+            <!-- ===================== 标题栏右键菜单 ===================== -->
+            <Popup x:Name="WinMenu" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" Placement="MousePoint">
+                <Grid Margin="14" Width="214" TextElement.Foreground="{DynamicResource TextBrush}" TextElement.FontSize="12.5">
+                    <Border CornerRadius="12" Background="{DynamicResource PopupSolidBrush}">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="18" ShadowDepth="3" Direction="270" Opacity="0.35"/>
+                        </Border.Effect>
+                    </Border>
+                    <Border CornerRadius="12" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" Padding="6">
+                        <StackPanel>
+                            <Button Tag="pin" Style="{StaticResource MenuRowBtn}">
+                                <DockPanel>
+                                    <TextBlock Text="&#xE718;" FontFamily="{StaticResource IconFont}" Width="24" VerticalAlignment="Center"/>
+                                    <TextBlock DockPanel.Dock="Right" Text="&#xE73E;" FontFamily="{StaticResource IconFont}" FontSize="11"
+                                               Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"
+                                               Visibility="{Binding Topmost, Converter={StaticResource B2V}}"/>
+                                    <TextBlock Text="窗口置顶"/>
+                                </DockPanel>
+                            </Button>
+                            <Button Tag="dockNow" Style="{StaticResource MenuRowBtn}">
+                                <DockPanel>
+                                    <TextBlock Text="&#xE73F;" FontFamily="{StaticResource IconFont}" Width="24" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="WinMenuDockText" Text="收起到屏幕边缘"/>
+                                </DockPanel>
+                            </Button>
+                            <Button Tag="mini" Style="{StaticResource MenuRowBtn}">
+                                <DockPanel>
+                                    <TextBlock Text="{Binding MiniGlyph}" FontFamily="{StaticResource IconFont}" Width="24" VerticalAlignment="Center"/>
+                                    <Border DockPanel.Dock="Right" Style="{StaticResource Keycap}"><TextBlock Text="双击"/></Border>
+                                    <TextBlock x:Name="WinMenuMiniText" Text="折叠为标题栏"/>
+                                </DockPanel>
+                            </Button>
+                            <Button Tag="settings" Style="{StaticResource MenuRowBtn}">
+                                <DockPanel>
+                                    <TextBlock Text="&#xE713;" FontFamily="{StaticResource IconFont}" Width="24" VerticalAlignment="Center"/>
+                                    <Border DockPanel.Dock="Right" Style="{StaticResource Keycap}"><TextBlock Text="Ctrl ,"/></Border>
+                                    <TextBlock Text="设置"/>
+                                </DockPanel>
+                            </Button>
+                            <Border Height="1" Background="{DynamicResource LineBrush}" Margin="4,4"/>
+                            <Button Tag="min" Style="{StaticResource MenuRowBtn}">
+                                <DockPanel>
+                                    <TextBlock Text="&#xE921;" FontFamily="{StaticResource IconFont}" Width="24" VerticalAlignment="Center"/>
+                                    <TextBlock Text="隐藏窗口"/>
+                                </DockPanel>
+                            </Button>
+                            <Button Tag="close" Style="{StaticResource MenuRowBtn}" Foreground="{DynamicResource DangerBrush}">
+                                <DockPanel>
+                                    <TextBlock Text="&#xE8BB;" FontFamily="{StaticResource IconFont}" Width="24" FontSize="11" VerticalAlignment="Center"/>
+                                    <TextBlock Text="退出"/>
+                                </DockPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Popup>
+        </Grid>
+
+        <!-- 贴边收起后露出的把手 -->
+        <Border x:Name="DockHandle" Width="3" Height="46" CornerRadius="1.5" Background="{DynamicResource AccentBrush}"
+                Opacity="0" IsHitTestVisible="False" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+
+        <!-- 拖到屏幕边缘时的提示 -->
+        <Grid x:Name="DockHint" Visibility="Collapsed" Opacity="0" IsHitTestVisible="False">
+            <Border CornerRadius="16" Background="{DynamicResource AccentSoftBrush}"/>
+            <Border x:Name="DockHintEdge" CornerRadius="16" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3,0,0,0"/>
+            <Border CornerRadius="10" Background="{DynamicResource AccentBrush}" Padding="14,7"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE73F;" FontFamily="{StaticResource IconFont}" FontSize="12" VerticalAlignment="Center"
+                               Foreground="{DynamicResource OnAccentBrush}" Margin="0,0,8,0"/>
+                    <TextBlock x:Name="DockHintText" Text="松开即可收起到边缘" FontSize="12.5" FontWeight="SemiBold"
+                               Foreground="{DynamicResource OnAccentBrush}"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- 玻璃质感的描边（最上层，不响应鼠标） -->
+        <Border CornerRadius="16" BorderBrush="{DynamicResource EdgeBrush}" BorderThickness="1" IsHitTestVisible="False"/>
+    </Grid>
+</Window>

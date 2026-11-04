@@ -1,0 +1,886 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<title>LiteTodo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="LiteTodo — a featherweight, transparent, frameless to-do widget for Windows that tucks into the screen edge.">
+<!-- 下载地址：GitHub Releases 上的压缩包；留空则显示“从源码构建” -->
+<meta name="litetodo-download" content="https://github.com/wuyao4/LiteTodo/releases/download/v1.2/LiteTodo-v1.2.zip">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* 版式：左文右“桌面”舞台的首屏，往下是按功能展开的单列长页；舞台里的小部件真的贴在右边缘 */
+:root {
+  --bg: #0c0f22;            /* 墨蓝：桌面夜色 */
+  --bg-2: #12162f;
+  --fg: #eceef6;
+  --muted: #9aa0bf;
+  --line: rgba(236, 238, 246, 0.10);
+  --accent: #8b9bff;        /* 应用默认主题“夜幕”的强调色 */
+  --accent-ink: #0c0f22;
+  --coral: #f2946b;         /* 壁纸里的暖光，只用于少数高光 */
+  --kbd-bg: rgba(236, 238, 246, 0.06);
+  --kbd-line: rgba(236, 238, 246, 0.16);
+  --stage-ring: rgba(236, 238, 246, 0.14);
+  --font-display: "Unbounded", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Noto Sans SC", "Noto Sans JP", "Microsoft YaHei UI", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+  --step--1: 0.8125rem;
+  --step-0: 1rem;
+  --step-1: 1.1875rem;
+  --step-2: 1.5rem;
+  --step-3: clamp(1.9rem, 1.3rem + 2.4vw, 3rem);
+  --step-4: clamp(2.3rem, 1.4rem + 3.6vw, 4.1rem);
+  --radius: 18px;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f3f4fa; --bg-2: #e9ebf6; --fg: #151935; --muted: #575d7c;
+    --line: rgba(21, 25, 53, 0.11); --accent: #4554d6; --accent-ink: #ffffff; --coral: #c9592f;
+    --kbd-bg: #ffffff; --kbd-line: rgba(21, 25, 53, 0.16); --stage-ring: rgba(21, 25, 53, 0.14);
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f3f4fa; --bg-2: #e9ebf6; --fg: #151935; --muted: #575d7c;
+  --line: rgba(21, 25, 53, 0.11); --accent: #4554d6; --accent-ink: #ffffff; --coral: #c9592f;
+  --kbd-bg: #ffffff; --kbd-line: rgba(21, 25, 53, 0.16); --stage-ring: rgba(21, 25, 53, 0.14);
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: var(--step-0); line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+a { color: inherit; }
+img, video { max-width: 100%; height: auto; display: block; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+.wrap {
+  width: 100%; max-width: 1180px; margin-inline: auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+p { margin: 0; }
+.eyebrow { font-family: var(--font-mono); font-size: var(--step--1); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+kbd {
+  font-family: var(--font-mono); font-size: 0.8em; padding: 0.08em 0.5em; border-radius: 6px;
+  background: var(--kbd-bg); border: 1px solid var(--kbd-line); border-bottom-width: 2px; white-space: nowrap;
+}
+
+/* ---------- 顶栏 ---------- */
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+.top .wrap { display: flex; align-items: center; gap: 20px; padding-block: 12px; }
+.mark { display: flex; align-items: center; gap: 10px; text-decoration: none; font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; }
+.mark i { width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(135deg, #7c8cff, #48c8be); display: grid; place-items: center; }
+.mark i svg { width: 15px; height: 15px; }
+.nav { display: flex; gap: 18px; margin-left: auto; font-size: var(--step--1); color: var(--muted); }
+.nav a { text-decoration: none; }
+.nav a:hover { color: var(--fg); }
+.lang { display: flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
+.lang button {
+  font: inherit; font-size: 0.78rem; color: var(--muted); background: none; border: 0; padding: 3px 10px; border-radius: 999px; cursor: pointer;
+}
+.lang button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+@media (max-width: 760px) { .nav { display: none; } .lang { margin-left: auto; } }
+
+/* ---------- 首屏 ---------- */
+.hero .wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 56px; align-items: center; padding-block: 72px 56px; }
+.hero h1 { font-size: var(--step-4); line-height: 1.12; font-weight: 700; letter-spacing: -0.02em; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero .lede { margin-top: 22px; font-size: var(--step-1); color: var(--muted); max-width: 34em; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 500;
+  padding: 12px 20px; border-radius: 12px; border: 1px solid var(--line); background: none; color: var(--fg); font: inherit; cursor: pointer;
+}
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn:not(.primary):hover { background: var(--kbd-bg); }
+.btn small { font-family: var(--font-mono); font-size: 0.75rem; opacity: 0.75; font-weight: 500; }
+.facts { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 26px; font-size: var(--step--1); color: var(--muted); }
+.facts b { color: var(--fg); font-family: var(--font-mono); font-weight: 500; }
+
+/* 舞台：一块“屏幕”，小部件贴在右边缘 */
+.wall {
+  background:
+    radial-gradient(38% 46% at 78% 26%, rgba(94, 200, 255, 0.55), transparent 70%),
+    radial-gradient(34% 40% at 68% 82%, rgba(255, 122, 182, 0.5), transparent 70%),
+    radial-gradient(30% 36% at 92% 62%, rgba(255, 200, 107, 0.55), transparent 70%),
+    radial-gradient(48% 60% at 14% 90%, rgba(110, 91, 255, 0.35), transparent 70%),
+    linear-gradient(135deg, #101634 0%, #332363 45%, #8e3e7e 78%, #f08e6a 100%);
+}
+.stage {
+  position: relative; aspect-ratio: 16 / 10.6; border-radius: var(--radius); overflow: hidden;
+  box-shadow: 0 0 0 1px var(--stage-ring), 0 30px 60px -30px rgba(0, 0, 0, 0.6);
+  /* 小部件图片 744×1200（宽高比 0.62），卡片四周各留 28px 阴影边：宽 36% 时图片高约为舞台高度的 88%，正好落在任务栏上方 */
+  --w: min(36%, 300px); --m: calc(var(--w) * 0.0376); --peek: 7px;
+}
+.stage .taskbar { position: absolute; inset: auto 0 0 0; height: 7%; background: rgba(18, 18, 28, 0.78); display: flex; justify-content: center; align-items: center; gap: 1.2%; }
+.stage .taskbar span { width: 2.6%; aspect-ratio: 1; border-radius: 22%; }
+.stage .widget-img {
+  position: absolute; top: 2.5%; right: calc(var(--m) * -1); width: var(--w); height: auto; aspect-ratio: 744 / 1200;
+  /* transform 里的百分比相对图片自身宽度：卡片占图片宽度的 92.5%（两侧各 3.76% 是阴影边距） */
+  transform: translateX(calc(92.48% - var(--peek)));
+  transition: transform 0.42s cubic-bezier(0.22, 0.8, 0.3, 1);
+  filter: drop-shadow(0 0 0 transparent);
+}
+.stage.out .widget-img { transform: translateX(0); transition-duration: 0.34s; }
+.stage .handle {
+  position: absolute; right: 2px; top: calc(46% - 26px); width: 4px; height: 52px; border-radius: 2px; background: #8b9bff;
+  transition: opacity 0.2s; box-shadow: 0 0 12px rgba(139, 155, 255, 0.8);
+}
+.stage.out .handle { opacity: 0; }
+.stage .edge-zone { position: absolute; inset: 0 0 7% auto; width: 18%; }
+.stage .hint {
+  position: absolute; left: 6%; top: 8%; max-width: 40%; color: rgba(255, 255, 255, 0.92);
+  font-size: clamp(0.85rem, 0.7rem + 0.5vw, 1.05rem); line-height: 1.5;
+}
+.stage .hint b { display: block; font-family: var(--font-display); font-weight: 500; font-size: 1.2em; margin-bottom: 6px; }
+.stage .hint .arrow { display: inline-block; animation: nudge 1.6s ease-in-out infinite; }
+@keyframes nudge { 50% { transform: translateX(6px); } }
+.stage .toggle {
+  position: absolute; left: 6%; bottom: 11%; font: inherit; font-size: 0.82rem; color: #fff; background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 999px; padding: 6px 14px; cursor: pointer; backdrop-filter: blur(6px);
+}
+@media (max-width: 900px) {
+  .hero .wrap { grid-template-columns: minmax(0, 1fr); gap: 36px; padding-block: 44px 40px; }
+}
+
+/* ---------- 通用分区 ---------- */
+section { padding-block: 76px; }
+section + section { border-top: 1px solid var(--line); }
+.sec-head { display: grid; gap: 12px; margin-bottom: 40px; max-width: 46em; }
+.sec-head h2 { font-size: var(--step-3); line-height: 1.2; letter-spacing: -0.01em; }
+.sec-head p { color: var(--muted); font-size: var(--step-1); }
+
+/* 视频 */
+.player { border-radius: var(--radius); overflow: hidden; box-shadow: 0 0 0 1px var(--stage-ring), 0 40px 80px -40px rgba(0, 0, 0, 0.6); background: #0b0d1c; }
+.player video { width: 100%; aspect-ratio: 16 / 9; }
+.chapters { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.chapters button {
+  font: inherit; font-size: var(--step--1); color: var(--muted); background: none; border: 1px solid var(--line);
+  padding: 4px 12px; border-radius: 999px; cursor: pointer;
+}
+.chapters button:hover { color: var(--fg); border-color: var(--accent); }
+.chapters button span { font-family: var(--font-mono); color: var(--accent); margin-right: 6px; }
+
+/* 功能 */
+.features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); }
+.feature { padding: 28px 28px 30px 0; border-bottom: 1px solid var(--line); display: grid; gap: 10px; align-content: start; }
+.feature:not(:nth-child(3n + 1)) { padding-left: 28px; border-left: 1px solid var(--line); }
+.feature svg { width: 26px; height: 26px; color: var(--accent); }
+.feature h3 { font-size: var(--step-1); font-weight: 700; }
+.feature p { color: var(--muted); font-size: 0.95rem; }
+@media (max-width: 900px) {
+  .features { grid-template-columns: minmax(0, 1fr); }
+  .feature, .feature:not(:nth-child(3n + 1)) { padding: 22px 0; border-left: 0; }
+}
+
+/* 试一试 */
+.play { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 40px; align-items: start; }
+.controls { display: grid; gap: 26px; }
+.controls h3 { font-size: var(--step--1); font-weight: 500; color: var(--muted); margin-bottom: 10px; }
+.swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+.swatch {
+  width: 46px; display: grid; justify-items: center; gap: 5px; font: inherit; font-size: 0.72rem; color: var(--muted);
+  background: none; border: 0; cursor: pointer; padding: 0;
+}
+.swatch i { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; box-shadow: 0 0 0 1px var(--line); }
+.swatch i::after { content: ""; width: 11px; height: 11px; border-radius: 50%; background: var(--dot); }
+.swatch[aria-pressed="true"] { color: var(--fg); }
+.swatch[aria-pressed="true"] i { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.seg button {
+  font: inherit; font-size: var(--step--1); padding: 6px 14px; border-radius: 10px; border: 1px solid var(--line);
+  background: none; color: var(--muted); cursor: pointer;
+}
+.seg button[aria-pressed="true"] { border-color: var(--accent); color: var(--fg); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.slider { display: grid; gap: 6px; }
+.slider label { display: flex; justify-content: space-between; font-size: var(--step--1); color: var(--muted); }
+.slider output { font-family: var(--font-mono); color: var(--fg); }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.play-stage { position: relative; border-radius: var(--radius); padding: 34px; display: grid; place-items: center; min-height: 520px; box-shadow: 0 0 0 1px var(--stage-ring); overflow: hidden; }
+.play-stage .note { position: absolute; left: 16px; bottom: 12px; font-size: 0.72rem; color: rgba(255, 255, 255, 0.75); }
+@media (max-width: 900px) { .play { grid-template-columns: minmax(0, 1fr); } .play-stage { padding: 20px 12px; } }
+
+/* 仿真小部件（与应用里的 WPF 样式一致） */
+.tw {
+  --a: 0.88; width: min(100%, 340px); border-radius: 16px; position: relative; color: var(--wt);
+  font-family: "Microsoft YaHei UI", "Noto Sans SC", sans-serif; font-size: 13.5px; line-height: 1.4;
+  background: linear-gradient(160deg, rgba(var(--w1), var(--a)), rgba(var(--w2), var(--a)));
+  box-shadow: inset 0 0 0 1px var(--wedge), 0 18px 40px -14px rgba(0, 0, 0, var(--wshadow));
+  transition: background 0.3s, color 0.3s;
+}
+.tw::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(95% 75% at 12% 0%, rgba(var(--wa), calc(var(--glow) * var(--a))), transparent 70%); }
+.tw > * { position: relative; }
+.tw-head { display: flex; align-items: center; padding: 14px 12px 8px 18px; gap: 8px; }
+.tw-head .t { font-size: 19.5px; font-weight: 700; }
+.tw-head .s { font-size: 12px; color: var(--ws); margin-top: 2px; }
+.tw-head svg { margin-left: auto; width: 38px; height: 38px; flex: none; }
+.tw-list { padding: 0 10px 4px 8px; }
+.tw-item { display: flex; align-items: flex-start; gap: 11px; position: relative; border-radius: var(--ir); padding: var(--ip); margin: var(--im); background: var(--ibg); box-shadow: var(--iline); }
+.tw-item .stripe { position: absolute; left: 0; top: var(--sm); bottom: var(--sm); width: var(--sw); border-radius: 0 3px 3px 0; }
+.tw-item .ck { width: var(--ck); height: var(--ck); border-radius: 50%; border: 1.6px solid var(--ws); flex: none; margin: 1px 0 0 2px; display: grid; place-items: center; cursor: pointer; }
+.tw-item .ck.p3 { border-color: #f2555a; background: rgba(242, 85, 90, 0.14); }
+.tw-item .ck.p2 { border-color: #f59e0b; background: rgba(245, 158, 11, 0.14); }
+.tw-item .ck.p1 { border-color: #3b82f6; background: rgba(59, 130, 246, 0.14); }
+.tw-item.done .ck { background: rgb(var(--wa)); border-color: rgb(var(--wa)); }
+.tw-item.done .ck::after { content: ""; width: 42%; height: 24%; border: solid var(--wck); border-width: 0 0 2px 2px; transform: translateY(-15%) rotate(-45deg); }
+.tw-item .tx { flex: 1; min-width: 0; font-size: var(--fs); }
+.tw-item .dot { display: var(--dot-d); width: 7px; height: 7px; border-radius: 50%; margin: 0.5em 8px 0 0; flex: none; }
+.tw-item .meta { display: var(--meta-d); font-size: 11px; color: var(--ws); margin-top: 3px; }
+.tw-item.done .tx span { text-decoration: line-through; color: var(--ws); }
+.tw-item .fl { width: 11px; height: 11px; margin: 4px 6px 0 0; flex: none; }
+.tw-done { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ws); padding: 8px 18px 4px; }
+.tw-done b { font-weight: 400; font-size: 10.5px; padding: 0 6px; border-radius: 7px; background: var(--winput2); }
+.tw-comp { margin: 10px 12px 12px; border-radius: 12px; background: var(--winput); box-shadow: inset 0 0 0 1px var(--wline); padding: 0 12px; height: 42px; display: flex; align-items: center; gap: 10px; color: var(--ws); font-size: 13px; }
+.tw-comp i { color: rgb(var(--wa)); font-style: normal; font-size: 18px; line-height: 1; }
+.tw.comfy { --ip: 9px 6px 9px 10px; --im: 1px 0; --ir: 10px; --ibg: transparent; --iline: none; --sw: 3px; --sm: 9px; --ck: 18px; --fs: 14px; --dot-d: none; --meta-d: none; }
+.tw.compact { --ip: 5px 4px 5px 8px; --im: 0; --ir: 7px; --ibg: transparent; --iline: none; --sw: 2px; --sm: 5px; --ck: 15px; --fs: 13px; --dot-d: none; --meta-d: none; }
+.tw.card { --ip: 11px 8px 11px 12px; --im: 3px 0; --ir: 12px; --ibg: var(--wsurf); --iline: inset 0 0 0 1px var(--wline); --sw: 3px; --sm: 12px; --ck: 19px; --fs: 14px; --dot-d: none; --meta-d: block; }
+.tw.minimal { --ip: 6px 4px 6px 6px; --im: 0; --ir: 8px; --ibg: transparent; --iline: none; --sw: 0px; --sm: 0; --ck: 16px; --fs: 13.5px; --dot-d: block; --meta-d: none; }
+
+/* 截图 */
+.shots { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(220px, 1fr); gap: 22px; overflow-x: auto; padding-bottom: 12px; scroll-snap-type: x mandatory; }
+.shots figure { margin: 0; scroll-snap-align: start; display: grid; gap: 10px; }
+.shots img { border-radius: 14px; }
+.shots figcaption { font-size: var(--step--1); color: var(--muted); }
+.themes { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 10px; margin-top: 40px; padding: 22px; border-radius: var(--radius); }
+.themes figure { margin: 0; display: grid; gap: 6px; justify-items: center; }
+.themes figcaption { font-size: 0.72rem; color: rgba(255, 255, 255, 0.85); }
+@media (max-width: 900px) { .themes { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* 快捷键 */
+.keys { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 48px; }
+.keys div { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 0.95rem; }
+.keys div span:first-child { color: var(--muted); }
+.keys div span:last-child { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 760px) { .keys { grid-template-columns: minmax(0, 1fr); } }
+
+/* 下载 */
+.get { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 40px; align-items: start; }
+.get .big { font-family: var(--font-display); font-size: var(--step-3); line-height: 1.15; }
+.specs { display: grid; gap: 0; border-top: 1px solid var(--line); }
+.specs div { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 0.95rem; }
+.specs dt { color: var(--muted); }
+.specs dd { margin: 0; text-align: right; font-family: var(--font-mono); font-size: 0.88rem; }
+pre { margin: 18px 0 0; padding: 16px 18px; border-radius: 12px; background: var(--bg-2); overflow-x: auto; font-family: var(--font-mono); font-size: 0.85rem; line-height: 1.7; }
+@media (max-width: 900px) { .get { grid-template-columns: minmax(0, 1fr); } }
+
+/* 问答 */
+.faq { display: grid; gap: 0; max-width: 860px; border-top: 1px solid var(--line); }
+.faq details { border-bottom: 1px solid var(--line); padding: 16px 0; }
+.faq summary { cursor: pointer; font-weight: 500; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+.faq summary::after { content: "+"; font-family: var(--font-mono); color: var(--accent); }
+.faq details[open] summary::after { content: "–"; }
+.faq p { color: var(--muted); margin-top: 10px; max-width: 62ch; }
+
+footer { border-top: 1px solid var(--line); }
+footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding-block: 28px 40px; font-size: var(--step--1); color: var(--muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  html { scroll-behavior: auto; }
+}
+</style>
+
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="mark" href="#top" aria-label="LiteTodo">
+      <i><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 8.3l2.7 2.6 6-6.2"/></svg></i>
+      LiteTodo
+    </a>
+    <nav class="nav">
+      <a href="#demo" data-i18n="nav.demo">演示</a>
+      <a href="#features" data-i18n="nav.features">功能</a>
+      <a href="#try" data-i18n="nav.try">试一试</a>
+      <a href="#keys" data-i18n="nav.keys">快捷键</a>
+      <a href="#get" data-i18n="nav.get">下载</a>
+      <a href="https://github.com/wuyao4/LiteTodo" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="zh" aria-pressed="true">中</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+      <button type="button" data-lang="ja" aria-pressed="false">日</button>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <!-- ===== 首屏 ===== -->
+  <div class="hero">
+    <div class="wrap">
+      <div>
+        <p class="eyebrow" data-i18n="hero.eyebrow">Windows 桌面待办 · v1.2</p>
+        <h1 style="margin-top:14px" data-i18n-html="hero.title">贴在屏幕边缘的<br><em>待办清单</em></h1>
+        <p class="lede" data-i18n="hero.lede">无边框、可调透明度。拖到屏幕边缘就自动收起，鼠标一碰又滑出来。单个 exe，免安装。</p>
+        <div class="cta">
+          <a class="btn primary" id="dl-hero" href="#get"><span data-i18n="hero.download">下载 Windows 版</span><small>214 KB</small></a>
+          <a class="btn" href="#demo" data-i18n="hero.watch">看 47 秒演示</a>
+        </div>
+        <div class="facts">
+          <span><b>214 KB</b> <span data-i18n="facts.size">单文件</span></span>
+          <span><b>0</b> <span data-i18n="facts.deps">需要安装的运行库</span></span>
+          <span><b>9 × 4</b> <span data-i18n="facts.looks">主题 × 显示风格</span></span>
+        </div>
+      </div>
+
+      <div class="stage wall out" id="stage">
+        <div class="hint">
+          <b data-i18n="stage.title">这就是你的桌面</b>
+          <span data-i18n="stage.text">鼠标移开，它会收进右边缘；碰一下边缘又会出来</span> <span class="arrow" aria-hidden="true">→</span>
+        </div>
+        <button type="button" class="toggle" id="stage-toggle" data-i18n="stage.toggle">收起 / 展开</button>
+        <div class="taskbar" aria-hidden="true">
+          <span style="background:#3b82f6"></span><span style="background:#f59e0b"></span><span style="background:#10b981"></span>
+          <span style="background:#ef4444"></span><span style="background:#8b5cf6"></span><span style="background:#14b8a6"></span>
+        </div>
+        <div class="edge-zone" id="edge-zone" aria-hidden="true"></div>
+        <img class="widget-img" id="stage-widget" src="assets/widget.webp" width="372" height="600" alt="LiteTodo 窗口：夜幕主题，列出今天的待办" data-i18n-alt="stage.alt">
+        <div class="handle" aria-hidden="true"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 演示视频 ===== -->
+  <section id="demo">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow" data-i18n="demo.eyebrow">演示</p>
+        <h2 data-i18n="demo.title">47 秒看完所有主要操作</h2>
+        <p data-i18n="demo.text">添加、完成、右键菜单、换主题、调透明度、贴边收起、折叠成一条。视频由应用离屏逐帧渲染，画面就是真实界面。</p>
+      </div>
+      <div class="player">
+        <video id="video" src="assets/demo.mp4" poster="assets/poster.webp" controls muted loop playsinline preload="metadata"></video>
+      </div>
+      <div class="chapters" id="chapters">
+        <button type="button" data-t="3.5"><span>0:03</span><b data-i18n="ch.add">回车添加</b></button>
+        <button type="button" data-t="7.9"><span>0:07</span><b data-i18n="ch.paste">粘贴多行</b></button>
+        <button type="button" data-t="11.1"><span>0:11</span><b data-i18n="ch.done">完成任务</b></button>
+        <button type="button" data-t="14.5"><span>0:14</span><b data-i18n="ch.menu">右键菜单</b></button>
+        <button type="button" data-t="18.9"><span>0:18</span><b data-i18n="ch.themes">主题与风格</b></button>
+        <button type="button" data-t="26.3"><span>0:26</span><b data-i18n="ch.opacity">透明度</b></button>
+        <button type="button" data-t="30.1"><span>0:30</span><b data-i18n="ch.dock">贴边收起</b></button>
+        <button type="button" data-t="38.4"><span>0:38</span><b data-i18n="ch.mini">折叠</b></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 功能 ===== -->
+  <section id="features">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow" data-i18n="feat.eyebrow">功能</p>
+        <h2 data-i18n="feat.title">待在手边，又不挡路</h2>
+      </div>
+      <div class="features">
+        <div class="feature">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M15 8h6M15 16h6"/><path d="M21 4v16"/></svg>
+          <h3 data-i18n="f1.t">贴边收起</h3>
+          <p data-i18n="f1.p">拖到屏幕左、右或上边缘，松手就收成一条细边。鼠标碰到边缘滑出，移开自动收回，收起时始终在最上层。</p>
+        </div>
+        <div class="feature">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17"/><path d="M12 7.5h4.5M12 11h6.5M12 14.5h6M12 18h3.5" opacity=".7"/></svg>
+          <h3 data-i18n="f2.t">两种透明度</h3>
+          <p data-i18n="f2.p">背景透明度只改底色，文字保持清晰；整体透明度连文字一起淡。Ctrl + 滚轮随时调，鼠标移入可自动变实。</p>
+        </div>
+        <div class="feature">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h10M4 17h13"/><path d="M18.5 14.5l1.5 1.5 3-3"/></svg>
+          <h3 data-i18n="f3.t">打字就能设置</h3>
+          <p data-i18n-html="f3.p">在输入框里写 <kbd>!!!</kbd> 是高优先级，<kbd>#蓝</kbd> 是颜色标签。粘贴一段列表，每行自动变成一项。</p>
+        </div>
+        <div class="feature">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6 10h1M9.5 10h1M13 10h1M16.5 10h1M7 14h10"/></svg>
+          <h3 data-i18n="f4.t">键盘也能全程操作</h3>
+          <p data-i18n="f4.p">方向键选择，空格完成，F2 编辑，Del 删除并可撤销，数字键设优先级，Ctrl + ↑↓ 调整顺序。</p>
+        </div>
+        <div class="feature">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="8" r="3"/><circle cx="17" cy="8" r="3"/><circle cx="7" cy="17" r="3"/><circle cx="17" cy="17" r="3"/></svg>
+          <h3 data-i18n="f5.t">9 种主题，4 种风格</h3>
+          <p data-i18n="f5.p">夜幕、深海、极光、樱花、便签……配上舒适、紧凑、卡片、极简四种列表风格。双击标题栏还能折叠成一条，只显示下一项。</p>
+        </div>
+        <div class="feature">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 14l2 2 4-4"/></svg>
+          <h3 data-i18n="f6.t">轻，而且只在本地</h3>
+          <p data-i18n="f6.p">一个 214 KB 的 exe，用系统自带的 .NET Framework 4.8 运行。数据存成本机的一个 JSON 文件，不联网、不需要账号。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 试一试 ===== -->
+  <section id="try">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow" data-i18n="try.eyebrow">试一试</p>
+        <h2 data-i18n="try.title">挑一个配色，调到看得清桌面</h2>
+        <p data-i18n="try.text">右边是按应用样式做的网页仿真，配色和透明度与真实窗口相同。点圆圈可以勾选。</p>
+      </div>
+      <div class="play">
+        <div class="controls">
+          <div>
+            <h3 data-i18n="try.theme">主题</h3>
+            <div class="swatches" id="swatches"></div>
+          </div>
+          <div>
+            <h3 data-i18n="try.layout">显示风格</h3>
+            <div class="seg" id="layouts"></div>
+          </div>
+          <div class="slider">
+            <label for="bg-op"><span data-i18n="try.bg">背景不透明度</span><output id="bg-out" for="bg-op">88%</output></label>
+            <input id="bg-op" type="range" min="0" max="100" value="88">
+          </div>
+          <div class="slider">
+            <label for="win-op"><span data-i18n="try.win">整体不透明度（含文字）</span><output id="win-out" for="win-op">100%</output></label>
+            <input id="win-op" type="range" min="30" max="100" value="100">
+          </div>
+        </div>
+        <div class="play-stage wall">
+          <div class="tw comfy" id="tw"></div>
+          <p class="note" data-i18n="try.note">界面文字为应用当前的简体中文</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 截图 ===== -->
+  <section id="shots">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow" data-i18n="shots.eyebrow">截图</p>
+        <h2 data-i18n="shots.title">真实界面</h2>
+      </div>
+      <div class="shots">
+        <figure><img src="assets/feature_compose.webp" width="372" height="600" loading="lazy" alt=""><figcaption data-i18n="shots.compose">输入时展开优先级和颜色</figcaption></figure>
+        <figure><img src="assets/feature_menu.webp" width="372" height="600" loading="lazy" alt=""><figcaption data-i18n="shots.menu">右键菜单：优先级、颜色、编辑、删除</figcaption></figure>
+        <figure><img src="assets/feature_dock.webp" width="372" height="600" loading="lazy" alt=""><figcaption data-i18n="shots.dock">拖近边缘时的提示</figcaption></figure>
+        <figure><img src="assets/feature_settings.webp" width="372" height="600" loading="lazy" alt=""><figcaption data-i18n="shots.settings">设置：主题、风格、透明度</figcaption></figure>
+        <figure><img src="assets/layout_card.webp" width="372" height="600" loading="lazy" alt=""><figcaption data-i18n="shots.card">卡片风格，显示创建和完成时间</figcaption></figure>
+      </div>
+      <div class="themes wall" id="themes"></div>
+    </div>
+  </section>
+
+  <!-- ===== 快捷键 ===== -->
+  <section id="keys">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow" data-i18n="keys.eyebrow">快捷键</p>
+        <h2 data-i18n="keys.title">手不用离开键盘</h2>
+      </div>
+      <div class="keys" id="keylist"></div>
+    </div>
+  </section>
+
+  <!-- ===== 下载 ===== -->
+  <section id="get">
+    <div class="wrap get">
+      <div>
+        <p class="eyebrow" data-i18n="get.eyebrow">下载</p>
+        <p class="big" style="margin-top:12px" data-i18n="get.title">双击就能用</p>
+        <p style="color:var(--muted);margin-top:14px;max-width:34em" data-i18n="get.text">解压后运行 LiteTodo.exe。想换台电脑带着走，在 exe 旁边放一个名为 portable 的空文件，数据就跟着 exe 一起。</p>
+        <div class="cta" id="dl-block">
+          <a class="btn primary" id="dl-main" href="#get"><span data-i18n="get.button">下载 LiteTodo v1.2</span><small>zip</small></a>
+          <a class="btn" href="https://github.com/wuyao4/LiteTodo/releases" target="_blank" rel="noopener" data-i18n="get.gh">GitHub 上的所有版本</a>
+        </div>
+        <p id="dl-none" hidden style="color:var(--muted);margin-top:22px" data-i18n="get.none">下载包即将发布。现在可以用下面的命令从源码构建：</p>
+        <pre id="build"><code>git clone https://github.com/wuyao4/LiteTodo.git
+cd LiteTodo
+.\build.ps1 -Run     # 输出 dist\LiteTodo.exe</code></pre>
+      </div>
+      <dl class="specs">
+        <div><dt data-i18n="spec.ver">版本</dt><dd>1.2</dd></div>
+        <div><dt data-i18n="spec.size">大小</dt><dd>214 KB</dd></div>
+        <div><dt data-i18n="spec.os">系统</dt><dd>Windows 10 1903+ / 11</dd></div>
+        <div><dt data-i18n="spec.rt">运行库</dt><dd>.NET Framework 4.8</dd></div>
+        <div><dt data-i18n="spec.data">数据位置</dt><dd>%APPDATA%\LiteTodo</dd></div>
+        <div><dt data-i18n="spec.lang">界面语言</dt><dd data-i18n="spec.langv">简体中文</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ===== 问答 ===== -->
+  <section id="faq">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow" data-i18n="faq.eyebrow">常见问题</p>
+        <h2 data-i18n="faq.title">用之前你可能想知道</h2>
+      </div>
+      <div class="faq">
+        <details><summary data-i18n="q1">需要安装什么吗？</summary><p data-i18n="a1">不需要。Windows 10 1903 及以后、Windows 11 都自带 .NET Framework 4.8，直接运行 exe 即可。</p></details>
+        <details><summary data-i18n="q2">数据存在哪里，会上传吗？</summary><p data-i18n="a2">存在 %APPDATA%\LiteTodo\todo-data.json（便携模式下在 exe 旁边）。程序不联网，也没有账号。文件是普通 JSON，可以直接备份。</p></details>
+        <details><summary data-i18n="q3">收起到边缘后怎么找回来？</summary><p data-i18n="a3">把鼠标移到那条边缘停一下就会滑出；也可以单击托盘图标，或按 Ctrl + Alt + T。</p></details>
+        <details><summary data-i18n="q4">为什么有的边缘没法收起？</summary><p data-i18n="a4">任务栏所在的一侧、以及和另一块显示器相邻的一侧不能收起，否则收起的部分会盖住任务栏或跑到别的屏幕上。</p></details>
+        <details><summary data-i18n="q5">怎么卸载？</summary><p data-i18n="a5">退出程序后删除 exe；如果开过“开机自动启动”，先在设置里关掉；最后删除 %APPDATA%\LiteTodo 文件夹即可。</p></details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>LiteTodo · <span data-i18n="foot.tag">轻量桌面待办</span> · <a href="https://github.com/wuyao4/LiteTodo" target="_blank" rel="noopener">GitHub</a></span>
+    <span data-i18n="foot.made">用 WPF 与 .NET Framework 4.8 构建</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------------- 文案 ----------------
+  var T = {
+    zh: {
+      "nav.demo": "演示", "nav.features": "功能", "nav.try": "试一试", "nav.keys": "快捷键", "nav.get": "下载",
+      "hero.eyebrow": "Windows 桌面待办 · v1.2",
+      "hero.title": "贴在屏幕边缘的<br><em>待办清单</em>",
+      "hero.lede": "无边框、可调透明度。拖到屏幕边缘就自动收起，鼠标一碰又滑出来。单个 exe，免安装。",
+      "hero.download": "下载 Windows 版", "hero.watch": "看 47 秒演示",
+      "facts.size": "单文件", "facts.deps": "需要安装的运行库", "facts.looks": "主题 × 显示风格",
+      "stage.title": "这就是你的桌面", "stage.text": "鼠标移开，它会收进右边缘；碰一下边缘又会出来", "stage.toggle": "收起 / 展开",
+      "stage.alt": "LiteTodo 窗口：夜幕主题，列出今天的待办",
+      "demo.eyebrow": "演示", "demo.title": "47 秒看完所有主要操作",
+      "demo.text": "添加、完成、右键菜单、换主题、调透明度、贴边收起、折叠成一条。视频由应用离屏逐帧渲染，画面就是真实界面。",
+      "ch.add": "回车添加", "ch.paste": "粘贴多行", "ch.done": "完成任务", "ch.menu": "右键菜单", "ch.themes": "主题与风格", "ch.opacity": "透明度", "ch.dock": "贴边收起", "ch.mini": "折叠",
+      "feat.eyebrow": "功能", "feat.title": "待在手边，又不挡路",
+      "f1.t": "贴边收起", "f1.p": "拖到屏幕左、右或上边缘，松手就收成一条细边。鼠标碰到边缘滑出，移开自动收回，收起时始终在最上层。",
+      "f2.t": "两种透明度", "f2.p": "背景透明度只改底色，文字保持清晰；整体透明度连文字一起淡。Ctrl + 滚轮随时调，鼠标移入可自动变实。",
+      "f3.t": "打字就能设置", "f3.p": "在输入框里写 <kbd>!!!</kbd> 是高优先级，<kbd>#蓝</kbd> 是颜色标签。粘贴一段列表，每行自动变成一项。",
+      "f4.t": "键盘也能全程操作", "f4.p": "方向键选择，空格完成，F2 编辑，Del 删除并可撤销，数字键设优先级，Ctrl + ↑↓ 调整顺序。",
+      "f5.t": "9 种主题，4 种风格", "f5.p": "夜幕、深海、极光、樱花、便签……配上舒适、紧凑、卡片、极简四种列表风格。双击标题栏还能折叠成一条，只显示下一项。",
+      "f6.t": "轻，而且只在本地", "f6.p": "一个 214 KB 的 exe，用系统自带的 .NET Framework 4.8 运行。数据存成本机的一个 JSON 文件，不联网、不需要账号。",
+      "try.eyebrow": "试一试", "try.title": "挑一个配色，调到看得清桌面",
+      "try.text": "右边是按应用样式做的网页仿真，配色和透明度与真实窗口相同。点圆圈可以勾选。",
+      "try.theme": "主题", "try.layout": "显示风格", "try.bg": "背景不透明度", "try.win": "整体不透明度（含文字）", "try.note": "界面文字为应用当前的简体中文",
+      "shots.eyebrow": "截图", "shots.title": "真实界面",
+      "shots.compose": "输入时展开优先级和颜色", "shots.menu": "右键菜单：优先级、颜色、编辑、删除", "shots.dock": "拖近边缘时的提示", "shots.settings": "设置：主题、风格、透明度", "shots.card": "卡片风格，显示创建和完成时间",
+      "keys.eyebrow": "快捷键", "keys.title": "手不用离开键盘",
+      "get.eyebrow": "下载", "get.title": "双击就能用",
+      "get.text": "解压后运行 LiteTodo.exe。想换台电脑带着走，在 exe 旁边放一个名为 portable 的空文件，数据就跟着 exe 一起。",
+      "get.button": "下载 LiteTodo v1.2", "get.gh": "GitHub 上的所有版本", "get.none": "下载包即将发布。现在可以用下面的命令从源码构建：",
+      "spec.ver": "版本", "spec.size": "大小", "spec.os": "系统", "spec.rt": "运行库", "spec.data": "数据位置", "spec.lang": "界面语言", "spec.langv": "简体中文",
+      "faq.eyebrow": "常见问题", "faq.title": "用之前你可能想知道",
+      "q1": "需要安装什么吗？", "a1": "不需要。Windows 10 1903 及以后、Windows 11 都自带 .NET Framework 4.8，直接运行 exe 即可。",
+      "q2": "数据存在哪里，会上传吗？", "a2": "存在 %APPDATA%\\LiteTodo\\todo-data.json（便携模式下在 exe 旁边）。程序不联网，也没有账号。文件是普通 JSON，可以直接备份。",
+      "q3": "收起到边缘后怎么找回来？", "a3": "把鼠标移到那条边缘停一下就会滑出；也可以单击托盘图标，或按 Ctrl + Alt + T。",
+      "q4": "为什么有的边缘没法收起？", "a4": "任务栏所在的一侧、以及和另一块显示器相邻的一侧不能收起，否则收起的部分会盖住任务栏或跑到别的屏幕上。",
+      "q5": "怎么卸载？", "a5": "退出程序后删除 exe；如果开过“开机自动启动”，先在设置里关掉；最后删除 %APPDATA%\\LiteTodo 文件夹即可。",
+      "foot.tag": "轻量桌面待办", "foot.made": "用 WPF 与 .NET Framework 4.8 构建"
+    },
+    en: {
+      "nav.demo": "Demo", "nav.features": "Features", "nav.try": "Try it", "nav.keys": "Shortcuts", "nav.get": "Download",
+      "hero.eyebrow": "To-do widget for Windows · v1.2",
+      "hero.title": "The to-do list that lives on the <em>edge of your screen</em>",
+      "hero.lede": "Frameless and as transparent as you like. Drag it to a screen edge and it tucks away; touch the edge and it slides back. One small exe, nothing to install.",
+      "hero.download": "Download for Windows", "hero.watch": "Watch the 47-second demo",
+      "facts.size": "single file", "facts.deps": "runtimes to install", "facts.looks": "themes × layouts",
+      "stage.title": "This is your desktop", "stage.text": "Move the mouse away and it tucks into the edge; touch the edge to bring it back", "stage.toggle": "Hide / show",
+      "stage.alt": "The LiteTodo window in the Midnight theme, listing today's tasks",
+      "demo.eyebrow": "Demo", "demo.title": "Every main feature in 47 seconds",
+      "demo.text": "Adding, checking off, the right-click menu, themes, transparency, edge docking and folding. The video is rendered frame by frame from the app itself, so what you see is the real interface.",
+      "ch.add": "Add with Enter", "ch.paste": "Paste a list", "ch.done": "Check off", "ch.menu": "Right-click menu", "ch.themes": "Themes & layouts", "ch.opacity": "Transparency", "ch.dock": "Edge docking", "ch.mini": "Fold",
+      "feat.eyebrow": "Features", "feat.title": "Always at hand, never in the way",
+      "f1.t": "Tucks into the edge", "f1.p": "Drop it on the left, right or top edge and it shrinks to a thin strip. Touch the edge to slide it out; move away and it hides again. While docked it stays on top.",
+      "f2.t": "Two kinds of transparency", "f2.p": "Background transparency fades only the backdrop and keeps text sharp; window transparency fades everything. Ctrl + scroll adjusts it, and it can turn solid while the mouse is over it.",
+      "f3.t": "Set things while you type", "f3.p": "Write <kbd>!!!</kbd> for high priority and <kbd>#蓝</kbd> (blue) for a color tag. Paste a list and every line becomes a task.",
+      "f4.t": "Fully keyboard-driven", "f4.p": "Arrow keys to select, Space to complete, F2 to edit, Del to delete with undo, number keys for priority, Ctrl + ↑↓ to reorder.",
+      "f5.t": "9 themes, 4 layouts", "f5.p": "Midnight, Ocean, Aurora, Sakura, Paper and more, with comfortable, compact, card and minimal lists. Double-click the title bar to fold it into one line that shows your next task.",
+      "f6.t": "Light, and local only", "f6.p": "A 214 KB exe that runs on the .NET Framework 4.8 built into Windows. Your tasks are one JSON file on your PC. No network, no account.",
+      "try.eyebrow": "Try it", "try.title": "Pick a palette, then dial in how much desktop shows through",
+      "try.text": "This is a web replica of the app's styles, with the same colors and transparency as the real window. Click a circle to check it off.",
+      "try.theme": "Theme", "try.layout": "Layout", "try.bg": "Background opacity", "try.win": "Window opacity (incl. text)", "try.note": "The app's interface is currently in Simplified Chinese",
+      "shots.eyebrow": "Screenshots", "shots.title": "The real interface",
+      "shots.compose": "Priority and color appear while you type", "shots.menu": "Right-click: priority, color, edit, delete", "shots.dock": "The hint near a screen edge", "shots.settings": "Settings: themes, layouts, transparency", "shots.card": "Card layout with created and done times",
+      "keys.eyebrow": "Shortcuts", "keys.title": "Keep your hands on the keyboard",
+      "get.eyebrow": "Download", "get.title": "Double-click and go",
+      "get.text": "Unzip and run LiteTodo.exe. To carry it between PCs, put an empty file named portable next to the exe and your data stays with it.",
+      "get.button": "Download LiteTodo v1.2", "get.gh": "All releases on GitHub", "get.none": "The download package is coming soon. For now, build it from source:",
+      "spec.ver": "Version", "spec.size": "Size", "spec.os": "System", "spec.rt": "Runtime", "spec.data": "Data folder", "spec.lang": "Interface", "spec.langv": "Simplified Chinese",
+      "faq.eyebrow": "FAQ", "faq.title": "Before you start",
+      "q1": "Do I need to install anything?", "a1": "No. Windows 10 1903 and later and Windows 11 include .NET Framework 4.8, so the exe runs as is.",
+      "q2": "Where is my data, and is it uploaded?", "a2": "It lives in %APPDATA%\\LiteTodo\\todo-data.json (next to the exe in portable mode). The app never goes online and has no accounts. It is plain JSON, so you can back it up directly.",
+      "q3": "How do I get it back after it docks?", "a3": "Rest the mouse on that screen edge for a moment and it slides out. You can also click the tray icon or press Ctrl + Alt + T.",
+      "q4": "Why can't some edges dock?", "a4": "The side with the taskbar and any side shared with another monitor can't dock, because the hidden part would cover the taskbar or spill onto the other screen.",
+      "q5": "How do I uninstall it?", "a5": "Quit the app and delete the exe. If you turned on start with Windows, switch it off in Settings first. Then delete the %APPDATA%\\LiteTodo folder.",
+      "foot.tag": "a featherweight desktop to-do", "foot.made": "Built with WPF and .NET Framework 4.8"
+    },
+    ja: {
+      "nav.demo": "デモ", "nav.features": "機能", "nav.try": "試す", "nav.keys": "ショートカット", "nav.get": "ダウンロード",
+      "hero.eyebrow": "Windows デスクトップ ToDo · v1.2",
+      "hero.title": "画面の端にしまえる<br><em>ToDo リスト</em>",
+      "hero.lede": "枠なしで、透明度も自由。画面の端までドラッグすると自動で隠れ、マウスを当てるとすっと出てきます。exe ひとつで、インストール不要。",
+      "hero.download": "Windows 版をダウンロード", "hero.watch": "47 秒のデモを見る",
+      "facts.size": "単一ファイル", "facts.deps": "追加のランタイム", "facts.looks": "テーマ × 表示スタイル",
+      "stage.title": "これがあなたのデスクトップ", "stage.text": "マウスを離すと右端にしまわれ、端に触れるとまた出てきます", "stage.toggle": "しまう / 出す",
+      "stage.alt": "夜幕テーマの LiteTodo ウィンドウ。今日のタスク一覧",
+      "demo.eyebrow": "デモ", "demo.title": "主な操作を 47 秒で",
+      "demo.text": "追加、完了、右クリックメニュー、テーマ変更、透明度、端へしまう、1 行に折りたたむ。動画はアプリ自身を 1 フレームずつ描画したもので、実際の画面そのままです。",
+      "ch.add": "Enter で追加", "ch.paste": "複数行を貼り付け", "ch.done": "完了", "ch.menu": "右クリック", "ch.themes": "テーマとスタイル", "ch.opacity": "透明度", "ch.dock": "端にしまう", "ch.mini": "折りたたむ",
+      "feat.eyebrow": "機能", "feat.title": "いつも手元に、でも邪魔しない",
+      "f1.t": "画面の端にしまえる", "f1.p": "画面の左・右・上の端に置くと、細い線だけ残して隠れます。端にマウスを当てると出てきて、離すとまた隠れます。しまっている間は常に最前面です。",
+      "f2.t": "2 種類の透明度", "f2.p": "背景の透明度は下地だけを薄くし、文字はくっきりのまま。ウィンドウ全体の透明度は文字ごと薄くします。Ctrl + ホイールで調整でき、マウスが乗ると不透明にもできます。",
+      "f3.t": "入力しながら設定", "f3.p": "入力欄に <kbd>!!!</kbd> と書けば優先度「高」、<kbd>#蓝</kbd>（青）で色ラベル。リストを貼り付ければ 1 行ずつタスクになります。",
+      "f4.t": "キーボードだけで操作", "f4.p": "矢印キーで選択、Space で完了、F2 で編集、Del で削除（元に戻せます）、数字キーで優先度、Ctrl + ↑↓ で並べ替え。",
+      "f5.t": "9 テーマ、4 スタイル", "f5.p": "夜幕、深海、極光、桜、付箋など。リストはゆったり・コンパクト・カード・ミニマルの 4 種類。タイトルバーをダブルクリックすると、次のタスクだけを表示する 1 行に折りたためます。",
+      "f6.t": "軽くて、ローカルだけ", "f6.p": "214 KB の exe が、Windows 標準の .NET Framework 4.8 で動きます。データは PC 上の JSON ファイル 1 つ。通信もアカウントもありません。",
+      "try.eyebrow": "試す", "try.title": "配色を選んで、デスクトップの透け具合を調整",
+      "try.text": "右側はアプリのスタイルを再現したウェブ版で、色と透明度は実際のウィンドウと同じです。丸をクリックすると完了にできます。",
+      "try.theme": "テーマ", "try.layout": "表示スタイル", "try.bg": "背景の不透明度", "try.win": "ウィンドウ全体の不透明度（文字を含む）", "try.note": "アプリの画面表示は現在、簡体字中国語です",
+      "shots.eyebrow": "スクリーンショット", "shots.title": "実際の画面",
+      "shots.compose": "入力中に優先度と色を選べる", "shots.menu": "右クリック：優先度・色・編集・削除", "shots.dock": "端に近づけたときのヒント", "shots.settings": "設定：テーマ・スタイル・透明度", "shots.card": "カード表示では作成・完了時刻も",
+      "keys.eyebrow": "ショートカット", "keys.title": "手をキーボードから離さずに",
+      "get.eyebrow": "ダウンロード", "get.title": "ダブルクリックですぐ使える",
+      "get.text": "解凍して LiteTodo.exe を実行するだけ。別の PC に持ち歩くなら、exe の隣に portable という名前の空ファイルを置くと、データも exe と一緒になります。",
+      "get.button": "LiteTodo v1.2 をダウンロード", "get.gh": "GitHub のリリース一覧", "get.none": "ダウンロード版はまもなく公開します。今はソースからビルドできます：",
+      "spec.ver": "バージョン", "spec.size": "サイズ", "spec.os": "OS", "spec.rt": "ランタイム", "spec.data": "データの場所", "spec.lang": "表示言語", "spec.langv": "簡体字中国語",
+      "faq.eyebrow": "よくある質問", "faq.title": "使う前に",
+      "q1": "何かインストールが必要ですか？", "a1": "いいえ。Windows 10 1903 以降と Windows 11 には .NET Framework 4.8 が入っているので、exe をそのまま実行できます。",
+      "q2": "データはどこに保存され、送信されますか？", "a2": "%APPDATA%\\LiteTodo\\todo-data.json に保存されます（ポータブルモードでは exe の隣）。通信は一切せず、アカウントもありません。普通の JSON なので、そのままバックアップできます。",
+      "q3": "端にしまった後、どう呼び戻しますか？", "a3": "その画面の端にマウスを少し置くと出てきます。トレイアイコンのクリックや Ctrl + Alt + T でも呼び出せます。",
+      "q4": "しまえない端があるのはなぜ？", "a4": "タスクバーのある側と、別のモニターと接している側には、しまえません。隠れた部分がタスクバーに重なったり、隣の画面にはみ出したりするためです。",
+      "q5": "アンインストールは？", "a5": "アプリを終了して exe を削除します。「Windows 起動時に開始」をオンにしていた場合は、先に設定でオフにしてください。最後に %APPDATA%\\LiteTodo フォルダーを削除します。",
+      "foot.tag": "軽量デスクトップ ToDo", "foot.made": "WPF と .NET Framework 4.8 で作成"
+    }
+  };
+
+  var KEYS = {
+    zh: [["添加任务", ["Enter"]], ["选择任务", ["↑", "↓"]], ["完成 / 取消完成", ["Space"]], ["编辑", ["F2"]],
+         ["删除 / 撤销", ["Del", "Ctrl Z"]], ["优先级 高 / 中 / 低 / 无", ["1", "2", "3", "0"]], ["调整顺序", ["Ctrl ↑", "Ctrl ↓"]],
+         ["背景透明度", ["Ctrl", "滚轮"]], ["字号", ["Ctrl +", "Ctrl −"]], ["设置", ["Ctrl ,"]], ["折叠为标题栏", ["双击标题栏"]], ["显示 / 隐藏窗口", ["Ctrl Alt T"]]],
+    en: [["Add a task", ["Enter"]], ["Select", ["↑", "↓"]], ["Complete / reopen", ["Space"]], ["Edit", ["F2"]],
+         ["Delete / undo", ["Del", "Ctrl Z"]], ["Priority high / mid / low / none", ["1", "2", "3", "0"]], ["Reorder", ["Ctrl ↑", "Ctrl ↓"]],
+         ["Background opacity", ["Ctrl", "Wheel"]], ["Font size", ["Ctrl +", "Ctrl −"]], ["Settings", ["Ctrl ,"]], ["Fold to title bar", ["Double-click title"]], ["Show / hide window", ["Ctrl Alt T"]]],
+    ja: [["タスクを追加", ["Enter"]], ["選択", ["↑", "↓"]], ["完了 / 戻す", ["Space"]], ["編集", ["F2"]],
+         ["削除 / 元に戻す", ["Del", "Ctrl Z"]], ["優先度 高 / 中 / 低 / なし", ["1", "2", "3", "0"]], ["並べ替え", ["Ctrl ↑", "Ctrl ↓"]],
+         ["背景の透明度", ["Ctrl", "ホイール"]], ["文字サイズ", ["Ctrl +", "Ctrl −"]], ["設定", ["Ctrl ,"]], ["1 行に折りたたむ", ["タイトルをダブルクリック"]], ["表示 / 隠す", ["Ctrl Alt T"]]]
+  };
+
+  var THEME_NAMES = {
+    zh: ["夜幕", "石墨", "深海", "极光", "暮色", "晨光", "樱花", "薄荷", "便签"],
+    en: ["Midnight", "Graphite", "Ocean", "Aurora", "Dusk", "Daylight", "Sakura", "Mint", "Paper"],
+    ja: ["夜幕", "石墨", "深海", "極光", "夕暮", "朝光", "桜", "ミント", "付箋"]
+  };
+  var LAYOUT_NAMES = {
+    zh: ["舒适", "紧凑", "卡片", "极简"], en: ["Comfortable", "Compact", "Card", "Minimal"], ja: ["ゆったり", "コンパクト", "カード", "ミニマル"]
+  };
+
+  // 与 src/Themes.cs 相同的配色
+  var THEMES = [
+    { k: "midnight", b1: "#1E2030", b2: "#15161F", t: "#ECEEF6", s: "#8B90A7", a: "#8B9BFF", d: 1 },
+    { k: "graphite", b1: "#28282B", b2: "#1B1B1D", t: "#EDEDEF", s: "#8E8E95", a: "#5EE0C3", d: 1 },
+    { k: "ocean", b1: "#10263D", b2: "#0A1828", t: "#E4F2FD", s: "#7FA3C2", a: "#38BDF8", d: 1 },
+    { k: "aurora", b1: "#241F45", b2: "#0E2B35", t: "#EEF0FF", s: "#9AA2C8", a: "#6EE7B7", d: 1 },
+    { k: "dusk", b1: "#301D33", b2: "#1B1220", t: "#FBEAF0", s: "#B293A6", a: "#FB923C", d: 1 },
+    { k: "daylight", b1: "#FFFFFF", b2: "#F3F5F9", t: "#1D2129", s: "#868D99", a: "#2F6BFF", d: 0 },
+    { k: "sakura", b1: "#FFF6F8", b2: "#FFE7EE", t: "#4A2A35", s: "#AC8390", a: "#E8578A", d: 0 },
+    { k: "mint", b1: "#F3FBF7", b2: "#E2F5EB", t: "#173A2C", s: "#779A8B", a: "#12A16B", d: 0 },
+    { k: "paper", b1: "#FFFCEB", b2: "#FDF0C4", t: "#3D3320", s: "#9A8A63", a: "#C98500", d: 0 }
+  ];
+  var LAYOUTS = ["comfy", "compact", "card", "minimal"];
+  var ITEMS = [
+    { tx: "完成季度报告并发给团队", p: 3, c: "#F87171", meta: "高 · 创建于 今天 09:10" },
+    { tx: "预约牙医", p: 2, c: "", meta: "中 · 创建于 今天 09:20" },
+    { tx: "买菜：牛奶、鸡蛋、西红柿", p: 0, c: "#34D399", meta: "创建于 昨天 18:00" },
+    { tx: "给妈妈打电话", p: 1, c: "#60A5FA", meta: "低 · 创建于 今天 10:00" }
+  ];
+  var DONE = { tx: "读完《设计心理学》第三章", p: 1, c: "#A78BFA", meta: "完成于 今天 08:00" };
+  var PRIO = { 3: "#F2555A", 2: "#F59E0B", 1: "#3B82F6" };
+
+  var state = { lang: "zh", theme: 0, layout: 0, bg: 88, win: 100, done: [false, false, false, false] };
+
+  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
+
+  // ---------------- 语言 ----------------
+  function setLang(lang) {
+    state.lang = lang;
+    var dict = T[lang];
+    document.documentElement.lang = lang === "zh" ? "zh-CN" : lang;
+    document.querySelectorAll("[data-i18n]").forEach(function (el) { var v = dict[el.dataset.i18n]; if (v != null) el.textContent = v; });
+    document.querySelectorAll("[data-i18n-html]").forEach(function (el) { var v = dict[el.dataset.i18nHtml]; if (v != null) el.innerHTML = v; });
+    document.querySelectorAll("[data-i18n-alt]").forEach(function (el) { var v = dict[el.dataset.i18nAlt]; if (v != null) el.alt = v; });
+    document.querySelectorAll(".lang button").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.lang === lang ? "true" : "false"); });
+    if (lang === "ja" && !document.getElementById("jp-font")) {
+      var l = document.createElement("link");
+      l.id = "jp-font"; l.rel = "stylesheet";
+      l.href = "https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap";
+      document.head.appendChild(l);
+    }
+    renderKeys(); renderSwatches(); renderLayouts(); renderThemes();
+    store("lt-lang", lang);
+  }
+  document.querySelectorAll(".lang button").forEach(function (b) { b.addEventListener("click", function () { setLang(b.dataset.lang); }); });
+
+  // ---------------- 快捷键 ----------------
+  function renderKeys() {
+    var box = document.getElementById("keylist");
+    box.innerHTML = "";
+    KEYS[state.lang].forEach(function (row) {
+      var d = document.createElement("div");
+      var a = document.createElement("span"); a.textContent = row[0];
+      var b = document.createElement("span");
+      row[1].forEach(function (k) { var e = document.createElement("kbd"); e.textContent = k; b.appendChild(e); });
+      d.appendChild(a); d.appendChild(b); box.appendChild(d);
+    });
+  }
+
+  // ---------------- 首屏：贴边舞台 ----------------
+  var stage = document.getElementById("stage");
+  var zone = document.getElementById("edge-zone");
+  var widget = document.getElementById("stage-widget");
+  var hideTimer = null;
+  function showDock() { clearTimeout(hideTimer); stage.classList.add("out"); }
+  function hideDockSoon() { clearTimeout(hideTimer); hideTimer = setTimeout(function () { stage.classList.remove("out"); }, 420); }
+  zone.addEventListener("mouseenter", showDock);
+  widget.addEventListener("mouseenter", showDock);
+  widget.addEventListener("mouseleave", hideDockSoon);
+  zone.addEventListener("mouseleave", function (e) { if (e.relatedTarget !== widget) hideDockSoon(); });
+  var touched = false;
+  stage.addEventListener("pointerdown", function () { touched = true; });
+  stage.addEventListener("mouseenter", function () { touched = true; });
+  document.getElementById("stage-toggle").addEventListener("click", function () { clearTimeout(hideTimer); touched = true; stage.classList.toggle("out"); });
+  // 打开页面时演示一次：收进边缘，再滑出来（之后停在展开状态）
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!reduce) {
+    setTimeout(function () { if (!touched) stage.classList.remove("out"); }, 1400);
+    setTimeout(function () { if (!touched) stage.classList.add("out"); }, 3000);
+  }
+
+  // ---------------- 视频章节 ----------------
+  var video = document.getElementById("video");
+  document.getElementById("chapters").addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    video.currentTime = parseFloat(b.dataset.t);
+    var p = video.play(); if (p && p.catch) p.catch(function () {});
+  });
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver(function (es) {
+      es.forEach(function (en) {
+        if (en.isIntersecting) { var p = video.play(); if (p && p.catch) p.catch(function () {}); }
+        else video.pause();
+      });
+    }, { threshold: 0.4 }).observe(video);
+  }
+
+  // ---------------- 试一试：仿真小部件 ----------------
+  function rgb(hex) { var n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255].join(","); }
+  function rgba(hex, a) { return "rgba(" + rgb(hex) + "," + a + ")"; }
+  var flagSvg = function (col) { return '<svg class="fl" viewBox="0 0 12 12" fill="none" stroke="' + col + '" stroke-width="1.3" stroke-linejoin="round"><path d="M2.5 11V1.5h6.5L7.6 4l1.4 2.5H2.5"/></svg>'; };
+
+  function renderWidget() {
+    var th = THEMES[state.theme], tw = document.getElementById("tw");
+    var s = tw.style;
+    s.setProperty("--w1", rgb(th.b1)); s.setProperty("--w2", rgb(th.b2));
+    s.setProperty("--wt", th.t); s.setProperty("--ws", th.s); s.setProperty("--wa", rgb(th.a));
+    s.setProperty("--a", (state.bg / 100).toFixed(2));
+    s.setProperty("--glow", th.d ? 0.2 : 0.13);
+    s.setProperty("--wedge", th.d ? "rgba(255,255,255,0.11)" : "rgba(0,0,0,0.08)");
+    s.setProperty("--wshadow", ((th.d ? 0.55 : 0.22) * Math.min(1, state.bg / 100 * 1.2)).toFixed(2));
+    s.setProperty("--wline", rgba(th.t, th.d ? 0.09 : 0.08));
+    s.setProperty("--winput", rgba(th.t, th.d ? 0.065 : 0.045));
+    s.setProperty("--winput2", rgba(th.t, th.d ? 0.11 : 0.08));
+    s.setProperty("--wsurf", th.d ? "rgba(255,255,255,0.055)" : "rgba(255,255,255,0.7)");
+    s.setProperty("--wck", th.d ? "#15161f" : "#ffffff");
+    tw.className = "tw " + LAYOUTS[state.layout];
+    tw.style.opacity = (state.win / 100).toFixed(2);
+
+    var left = ITEMS.filter(function (_, i) { return !state.done[i]; }).length;
+    var total = ITEMS.length + 1, doneN = total - left;
+    var C = 2 * Math.PI * 17.4, pct = doneN / total;
+    var html = '<div class="tw-head"><div><div class="t">今天</div><div class="s">11月4日 星期三 · ' + (left ? "还有 " + left + " 项" : "全部完成") + '</div></div>' +
+      '<svg viewBox="0 0 38 38"><circle cx="19" cy="19" r="17.4" fill="none" stroke="' + rgba(th.t, th.d ? 0.11 : 0.08) + '" stroke-width="3.2"/>' +
+      '<circle cx="19" cy="19" r="17.4" fill="none" stroke="' + th.a + '" stroke-width="3.2" stroke-dasharray="' + (C * pct).toFixed(1) + " " + C.toFixed(1) + '" transform="rotate(-90 19 19)"/>' +
+      '<text x="19" y="22.6" text-anchor="middle" font-size="10.5" font-weight="600" fill="' + th.s + '" font-family="Segoe UI, sans-serif">' + (left ? Math.round(pct * 100) : "✓") + '</text></svg></div><div class="tw-list">';
+    ITEMS.forEach(function (it, i) { if (!state.done[i]) html += itemHtml(it, i, false); });
+    var doneItems = [DONE].concat(ITEMS.filter(function (_, i) { return state.done[i]; }));
+    html += '</div><div class="tw-done"><span>›</span>已完成 <b>' + doneItems.length + '</b></div><div class="tw-list">';
+    ITEMS.forEach(function (it, i) { if (state.done[i]) html += itemHtml(it, i, true); });
+    html += itemHtml(DONE, -1, true);
+    html += '</div><div class="tw-comp"><i>+</i>添加任务，按 Enter 保存</div>';
+    tw.innerHTML = html;
+  }
+  function itemHtml(it, i, done) {
+    return '<div class="tw-item' + (done ? " done" : "") + '">' +
+      (it.c ? '<span class="stripe" style="background:' + it.c + (done ? ";opacity:.35" : "") + '"></span>' : "") +
+      '<button type="button" class="ck' + (it.p ? " p" + it.p : "") + '" data-i="' + i + '" aria-label="' + (done ? "取消完成" : "完成") + '" style="padding:0;font:inherit;color:inherit;background-clip:padding-box"></button>' +
+      '<span class="dot" style="background:' + (it.c || "transparent") + '"></span>' +
+      '<div class="tx"><span>' + it.tx + '</span><div class="meta">' + it.meta + '</div></div>' +
+      (it.p ? flagSvg(PRIO[it.p]).replace('class="fl"', 'class="fl"' + (done ? ' style="opacity:.35"' : "")) : "") + "</div>";
+  }
+  document.getElementById("tw").addEventListener("click", function (e) {
+    var b = e.target.closest(".ck"); if (!b) return;
+    var i = +b.dataset.i; if (i < 0) return;
+    state.done[i] = !state.done[i]; renderWidget();
+  });
+
+  function renderSwatches() {
+    var box = document.getElementById("swatches"); box.innerHTML = "";
+    THEMES.forEach(function (th, i) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "swatch"; b.setAttribute("aria-pressed", i === state.theme ? "true" : "false");
+      b.innerHTML = '<i style="background:linear-gradient(160deg,' + th.b1 + "," + th.b2 + ");--dot:" + th.a + '"></i><span>' + THEME_NAMES[state.lang][i] + "</span>";
+      b.addEventListener("click", function () { state.theme = i; renderSwatches(); renderWidget(); });
+      box.appendChild(b);
+    });
+  }
+  function renderLayouts() {
+    var box = document.getElementById("layouts"); box.innerHTML = "";
+    LAYOUTS.forEach(function (l, i) {
+      var b = document.createElement("button");
+      b.type = "button"; b.textContent = LAYOUT_NAMES[state.lang][i]; b.setAttribute("aria-pressed", i === state.layout ? "true" : "false");
+      b.addEventListener("click", function () { state.layout = i; renderLayouts(); renderWidget(); });
+      box.appendChild(b);
+    });
+  }
+  function renderThemes() {
+    var box = document.getElementById("themes"); box.innerHTML = "";
+    THEMES.forEach(function (th, i) {
+      var f = document.createElement("figure");
+      f.innerHTML = '<img src="assets/theme_' + th.k + '.webp" width="372" height="600" loading="lazy" alt=""><figcaption>' + THEME_NAMES[state.lang][i] + "</figcaption>";
+      box.appendChild(f);
+    });
+  }
+  var bgIn = document.getElementById("bg-op"), winIn = document.getElementById("win-op");
+  bgIn.addEventListener("input", function () { state.bg = +bgIn.value; document.getElementById("bg-out").textContent = state.bg + "%"; renderWidget(); });
+  winIn.addEventListener("input", function () { state.win = +winIn.value; document.getElementById("win-out").textContent = state.win + "%"; renderWidget(); });
+
+  // ---------------- 下载地址 ----------------
+  var dl = (document.querySelector('meta[name="litetodo-download"]') || {}).content || "";
+  if (dl) {
+    ["dl-main", "dl-hero"].forEach(function (id) {
+      var a = document.getElementById(id);
+      a.href = dl;
+      if (/^https?:/.test(dl)) { a.target = "_blank"; a.rel = "noopener"; }
+    });
+  } else {
+    document.getElementById("dl-block").hidden = true;
+    document.getElementById("dl-none").hidden = false;
+    document.getElementById("dl-hero").href = "#get";
+  }
+
+  // ---------------- 启动 ----------------
+  var saved = store("lt-lang");
+  var nav = (navigator.language || "zh").toLowerCase();
+  var lang = T[saved] ? saved : nav.indexOf("zh") === 0 ? "zh" : nav.indexOf("ja") === 0 ? "ja" : "en";
+  setLang(lang);
+  renderWidget();
+})();
+</script>
+</body>
+</html>
